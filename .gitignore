@@ -1,0 +1,68 @@
+# ================================
+# Maven
+# ================================
+
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# ================================
+# Spring Boot / Local Configuration
+# ================================
+
+# Contains local database credentials
+src/main/resources/application.properties
+
+# ================================
+# IntelliJ IDEA
+# ================================
+
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ================================
+# VS Code
+# ================================
+
+.vscode/
+
+# ================================
+# Eclipse / STS
+# ================================
+
+.classpath
+.project
+.settings/
+
+# ================================
+# Java / Build Output
+# ================================
+
+*.class
+*.log
+
+# ================================
+# OS Generated Files
+# ================================
+
+.DS_Store
+Thumbs.db
+
+# ================================
+# Environment / Secrets
+# ================================
+
+.env
+.env.*
+!.env.example
+
+# ================================
+# Temporary Files
+# ================================
+
+*.tmp
+*.temp
+*.swp
+*.swo
