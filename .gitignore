@@ -12,6 +12,7 @@ target/
 # Contains local database credentials
 src/main/resources/application.properties
 
+
 # ================================
 # IntelliJ IDEA
 # ================================
