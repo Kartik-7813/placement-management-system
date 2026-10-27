@@ -164,8 +164,31 @@ public class InterviewService {
                 .orElseThrow(() -> new InterviewNotFoundException(
                         "Interview not found with id: " + id));
 
-        // Do not allow changing application relationship
-        // through the update request.
+        boolean applicationChanged = request.getApplicationId() != null
+                && !request.getApplicationId().equals(existingInterview.getApplication().getApplicationId());
+        boolean roundChanged = !request.getRoundNumber().equals(existingInterview.getRoundNumber());
+
+        if (applicationChanged || roundChanged) {
+            Long targetApplicationId = applicationChanged
+                    ? request.getApplicationId()
+                    : existingInterview.getApplication().getApplicationId();
+
+            if (interviewRepository.existsByApplication_ApplicationIdAndRoundNumber(
+                    targetApplicationId,
+                    request.getRoundNumber())) {
+                throw new InterviewAlreadyExistsException(
+                        "Interview round " + request.getRoundNumber()
+                                + " already exists for application id: "
+                                + targetApplicationId);
+            }
+        }
+
+        if (applicationChanged) {
+            Application newApplication = applicationRepository.findById(request.getApplicationId())
+                    .orElseThrow(() -> new ApplicationNotFoundException(
+                            "Application not found with id: " + request.getApplicationId()));
+            existingInterview.setApplication(newApplication);
+        }
 
         existingInterview.setRoundNumber(request.getRoundNumber());
         existingInterview.setRoundType(request.getRoundType());

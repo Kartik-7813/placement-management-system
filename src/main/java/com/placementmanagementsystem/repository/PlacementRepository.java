@@ -1,5 +1,6 @@
 package com.placementmanagementsystem.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,9 +23,22 @@ public interface PlacementRepository extends JpaRepository<Placement, Long> {
 
     boolean existsByApplication_ApplicationId(Long applicationId);
 
+    boolean existsByStudent_StudentIdAndStatusIn(
+            Long studentId,
+            Collection<PlacementStatus> statuses);
+
+    List<Placement> findByStudent_StudentIdOrderByPlacedOnDesc(Long studentId);
+
+    Optional<Placement> findFirstByStudent_StudentIdAndStatusIn(
+            Long studentId,
+            Collection<PlacementStatus> statuses);
+
+    Optional<Placement> findFirstByStudent_StudentIdOrderByPlacedOnDesc(Long studentId);
+
     List<Placement> findByStatus(PlacementStatus status);
 
     Page<Placement> findByStatus(PlacementStatus status, Pageable pageable);
 
     long countByStatus(PlacementStatus status);
 }
+

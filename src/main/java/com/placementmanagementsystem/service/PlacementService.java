@@ -1,6 +1,8 @@
 package com.placementmanagementsystem.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +30,11 @@ import com.placementmanagementsystem.repository.StudentRepository;
 @Transactional
 public class PlacementService {
 
+    public static final Set<PlacementStatus> ACTIVE_STATUSES = Set.of(
+            PlacementStatus.CONFIRMED,
+            PlacementStatus.JOINED
+    );
+
     private final PlacementRepository placementRepository;
     private final StudentRepository studentRepository;
     private final ApplicationRepository applicationRepository;
@@ -48,8 +55,8 @@ public class PlacementService {
 
     public PlacementResponse createPlacement(PlacementRequest request) {
 
-        // 1. Student must exist
-        Student student = studentRepository.findById(request.getStudentId())
+        // 1. Student must exist - Acquire pessimistic write lock to serialize concurrent placement creations for the same student
+        Student student = studentRepository.findByIdWithLock(request.getStudentId())
                 .orElseThrow(() -> new StudentNotFoundException(
                         "Student not found with id: " + request.getStudentId()));
 
@@ -72,10 +79,10 @@ public class PlacementService {
                             + "Current status: " + application.getStatus());
         }
 
-        // 5. Student cannot already have a placement
-        if (placementRepository.existsByStudent_StudentId(student.getStudentId())) {
+        // 5. Student cannot already have an active placement (CONFIRMED or JOINED)
+        if (placementRepository.existsByStudent_StudentIdAndStatusIn(student.getStudentId(), ACTIVE_STATUSES)) {
             throw new PlacementAlreadyExistsException(
-                    "Student already has a placement: " + student.getStudentId());
+                    "Student already has an active placement: " + student.getStudentId());
         }
 
         // 6. Application cannot already have a placement
@@ -139,18 +146,40 @@ public class PlacementService {
     }
 
     // =========================================================
-    // GET PLACEMENT BY STUDENT
+    // GET PLACEMENT BY STUDENT (ACTIVE OR MOST RECENT)
     // =========================================================
 
     @Transactional(readOnly = true)
     public PlacementResponse getPlacementByStudent(Long studentId) {
 
+        studentRepository.findById(studentId)
+                .orElseThrow(() -> new StudentNotFoundException(
+                        "Student not found with id: " + studentId));
+
         Placement placement = placementRepository
-                .findByStudent_StudentId(studentId)
+                .findFirstByStudent_StudentIdAndStatusIn(studentId, ACTIVE_STATUSES)
+                .or(() -> placementRepository.findFirstByStudent_StudentIdOrderByPlacedOnDesc(studentId))
                 .orElseThrow(() -> new PlacementNotFoundException(
                         "Placement not found for student id: " + studentId));
 
         return toResponse(placement);
+    }
+
+    // =========================================================
+    // GET PLACEMENT HISTORY FOR STUDENT
+    // =========================================================
+
+    @Transactional(readOnly = true)
+    public List<PlacementResponse> getPlacementHistoryByStudent(Long studentId) {
+
+        studentRepository.findById(studentId)
+                .orElseThrow(() -> new StudentNotFoundException(
+                        "Student not found with id: " + studentId));
+
+        return placementRepository.findByStudent_StudentIdOrderByPlacedOnDesc(studentId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     // =========================================================

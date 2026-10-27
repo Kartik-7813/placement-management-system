@@ -1,5 +1,7 @@
 package com.placementmanagementsystem.controller;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -95,6 +97,20 @@ public class PlacementController {
 
         PlacementResponse response =
                 placementService.getPlacementByStudent(studentId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    // =========================================================
+    // GET PLACEMENT HISTORY BY STUDENT
+    // =========================================================
+
+    @GetMapping("/student/{studentId}/history")
+    public ResponseEntity<List<PlacementResponse>> getPlacementHistoryByStudent(
+            @PathVariable Long studentId) {
+
+        List<PlacementResponse> response =
+                placementService.getPlacementHistoryByStudent(studentId);
 
         return ResponseEntity.ok(response);
     }

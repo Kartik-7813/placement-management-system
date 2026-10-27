@@ -15,9 +15,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "interviews")
+@Table(
+    name = "interviews",
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uk_application_round",
+            columnNames = {"application_id", "round_number"}
+        )
+    }
+)
 public class Interview {
 
     @Id
@@ -29,7 +38,7 @@ public class Interview {
     @JoinColumn(name = "application_id", nullable = false)
     private Application application;
 
-    @Column(name = "round_number")
+    @Column(name = "round_number", nullable = false)
     private Integer roundNumber;
 
     @Column(name = "round_type", length = 50)

@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -72,9 +73,9 @@ public class Student {
     @JsonIgnore
     private List<Application> applications = new ArrayList<>();
 
-    @OneToOne(mappedBy = "student", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL)
     @JsonIgnore
-    private Placement placement;
+    private List<Placement> placements = new ArrayList<>();
 
     @ManyToMany
     @JoinTable(
@@ -206,12 +207,12 @@ public class Student {
         this.applications = applications;
     }
 
-    public Placement getPlacement() {
-        return placement;
+    public List<Placement> getPlacements() {
+        return placements;
     }
 
-    public void setPlacement(Placement placement) {
-        this.placement = placement;
+    public void setPlacements(List<Placement> placements) {
+        this.placements = placements;
     }
 
     public Set<Skill> getSkills() {
@@ -220,5 +221,17 @@ public class Student {
 
     public void setSkills(Set<Skill> skills) {
         this.skills = skills;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Student that)) return false;
+        return getRollNumber() != null && Objects.equals(getRollNumber(), that.getRollNumber());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getRollNumber());
     }
 }
