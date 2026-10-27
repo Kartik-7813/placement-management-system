@@ -1,8 +1,10 @@
 package com.placementmanagementsystem.dto;
 
 import com.placementmanagementsystem.enums.PlacementStatus;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -15,9 +17,11 @@ public class PlacementRequest {
     @NotNull(message = "Application ID is required")
     private Long applicationId;
 
+    @Size(max = 150, message = "Job role cannot exceed 150 characters")
     private String jobRole;
 
     @PositiveOrZero(message = "Package must be non-negative")
+    @Digits(integer = 10, fraction = 2, message = "Package amount must have at most 10 integer digits and 2 decimal places")
     private BigDecimal packageAmount;
 
     private LocalDate joiningDate;

@@ -3,8 +3,13 @@ package com.placementmanagementsystem.dto;
 import com.placementmanagementsystem.enums.StudentStatus;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -12,26 +17,42 @@ import java.time.LocalDate;
 public class StudentRequest {
 
     @NotBlank(message = "Roll number is required")
+    @Size(max = 50, message = "Roll number cannot exceed 50 characters")
     private String rollNumber;
 
     @NotBlank(message = "Name is required")
+    @Size(max = 100, message = "Name cannot exceed 100 characters")
     private String name;
 
     @NotBlank(message = "Email is required")
     @Email(message = "Email must be valid")
+    @Size(max = 100, message = "Email cannot exceed 100 characters")
     private String email;
 
+    @Size(max = 15, message = "Phone number cannot exceed 15 characters")
     private String phone;
+
+    @Past(message = "Date of birth must be in the past")
     private LocalDate dob;
+
+    @Size(max = 20, message = "Gender cannot exceed 20 characters")
     private String gender;
+
+    @Size(max = 100, message = "Department cannot exceed 100 characters")
     private String department;
 
     @DecimalMin(value = "0.00", message = "CGPA must be at least 0.0")
     @DecimalMax(value = "10.00", message = "CGPA cannot exceed 10.0")
+    @Digits(integer = 2, fraction = 2, message = "CGPA must have at most 2 integer digits and 2 decimal places")
     private BigDecimal cgpa;
 
+    @Min(value = 1900, message = "Passing year must be valid")
+    @Max(value = 2100, message = "Passing year must be valid")
     private Integer passingYear;
+
+    @Size(max = 255, message = "Address cannot exceed 255 characters")
     private String address;
+
     private StudentStatus status;
 
     public StudentRequest() {

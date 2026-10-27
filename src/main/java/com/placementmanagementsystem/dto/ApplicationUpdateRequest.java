@@ -1,8 +1,12 @@
 package com.placementmanagementsystem.dto;
 
+import jakarta.validation.constraints.Size;
+
 public class ApplicationUpdateRequest {
 
+    @Size(max = 255, message = "Resume URL cannot exceed 255 characters")
     private String resumeUrl;
+
     private String remarks;
 
     public ApplicationUpdateRequest() {

@@ -3,20 +3,30 @@ package com.placementmanagementsystem.dto;
 import com.placementmanagementsystem.enums.CompanyStatus;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public class CompanyRequest {
 
     @NotBlank(message = "Company name is required")
+    @Size(max = 150, message = "Company name cannot exceed 150 characters")
     private String name;
 
+    @Size(max = 200, message = "Website URL cannot exceed 200 characters")
     private String website;
+
+    @Size(max = 100, message = "Contact person cannot exceed 100 characters")
     private String contactPerson;
 
     @Email(message = "Email must be valid")
+    @Size(max = 100, message = "Email cannot exceed 100 characters")
     private String email;
 
+    @Size(max = 15, message = "Phone number cannot exceed 15 characters")
     private String phone;
+
+    @Size(max = 255, message = "Address cannot exceed 255 characters")
     private String address;
+
     private CompanyStatus status;
 
     public CompanyRequest() {

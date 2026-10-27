@@ -4,11 +4,17 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.placementmanagementsystem.dto.ErrorResponse;
 
@@ -16,6 +22,8 @@ import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     // =========================================================
     // 404 - NOT FOUND
@@ -75,7 +83,8 @@ public class GlobalExceptionHandler {
             InactiveCompanyException.class,
             ApplicationNotSelectedException.class,
             PlacementStudentMismatchException.class,
-            IllegalStateException.class
+            IllegalStateException.class,
+            IllegalArgumentException.class
     })
     public ResponseEntity<ErrorResponse> handleBadRequest(
             RuntimeException exception,
@@ -93,7 +102,7 @@ public class GlobalExceptionHandler {
     // =========================================================
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidationErrors(
+    public ResponseEntity<ErrorResponse> handleValidationErrors(
             MethodArgumentNotValidException exception,
             HttpServletRequest request) {
 
@@ -108,21 +117,117 @@ public class GlobalExceptionHandler {
                         )
                 );
 
-        Map<String, Object> response = new LinkedHashMap<>();
-
-        response.put("timestamp", LocalDateTime.now());
-        response.put("status", HttpStatus.BAD_REQUEST.value());
-        response.put("error", "Validation Failed");
-        response.put("messages", validationErrors);
-        response.put("path", request.getRequestURI());
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                "Validation failed for one or more fields",
+                request.getRequestURI(),
+                validationErrors
+        );
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(response);
+                .body(errorResponse);
     }
 
     // =========================================================
-    // COMMON ERROR RESPONSE
+    // 400 - MALFORMED JSON / INVALID FIELD OR ENUM VALUES
+    // =========================================================
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException exception,
+            HttpServletRequest request) {
+
+        log.debug("Malformed JSON or unreadable request body at path [{}]: {}", request.getRequestURI(), exception.getMessage());
+
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Malformed JSON request or invalid field value/format",
+                request
+        );
+    }
+
+    // =========================================================
+    // 400 - PATH VARIABLE / PARAMETER TYPE MISMATCH
+    // =========================================================
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
+            MethodArgumentTypeMismatchException exception,
+            HttpServletRequest request) {
+
+        String paramName = exception.getName();
+        String expectedType = exception.getRequiredType() != null 
+                ? exception.getRequiredType().getSimpleName() 
+                : "valid type";
+
+        String message = String.format("Parameter '%s' should be of type %s", paramName, expectedType);
+
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                message,
+                request
+        );
+    }
+
+    // =========================================================
+    // 400 - MISSING REQUIRED REQUEST PARAMETER
+    // =========================================================
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingServletRequestParameter(
+            MissingServletRequestParameterException exception,
+            HttpServletRequest request) {
+
+        String message = String.format("Required request parameter '%s' is missing", exception.getParameterName());
+
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                message,
+                request
+        );
+    }
+
+    // =========================================================
+    // 409 - DATABASE DATA INTEGRITY VIOLATION
+    // =========================================================
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
+            DataIntegrityViolationException exception,
+            HttpServletRequest request) {
+
+        log.warn("Database integrity violation at path [{}]: {}", request.getRequestURI(), exception.getMessage());
+
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                "Database constraint violation: duplicate record or invalid reference data",
+                request
+        );
+    }
+
+    // =========================================================
+    // 500 - UNEXPECTED INTERNAL SERVER ERROR (FALLBACK)
+    // =========================================================
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleUnexpectedException(
+            Exception exception,
+            HttpServletRequest request) {
+
+        log.error("Unhandled exception processing request to [{}]: {}", request.getRequestURI(), exception.getMessage(), exception);
+
+        return buildErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected internal error occurred. Please contact support.",
+                request
+        );
+    }
+
+    // =========================================================
+    // COMMON ERROR RESPONSE BUILDER
     // =========================================================
 
     private ResponseEntity<ErrorResponse> buildErrorResponse(

@@ -3,9 +3,12 @@ package com.placementmanagementsystem.dto;
 import com.placementmanagementsystem.enums.JobStatus;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -16,6 +19,7 @@ public class JobRequest {
     private Long companyId;
 
     @NotBlank(message = "Job title is required")
+    @Size(max = 150, message = "Job title cannot exceed 150 characters")
     private String title;
 
     private String description;
@@ -24,13 +28,19 @@ public class JobRequest {
 
     @DecimalMin(value = "0.00", message = "Minimum CGPA must be at least 0.0")
     @DecimalMax(value = "10.00", message = "Minimum CGPA cannot exceed 10.0")
+    @Digits(integer = 2, fraction = 2, message = "Minimum CGPA must have at most 2 integer digits and 2 decimal places")
     private BigDecimal minCgpa;
 
     @PositiveOrZero(message = "Package must be non-negative")
+    @Digits(integer = 10, fraction = 2, message = "Package amount must have at most 10 integer digits and 2 decimal places")
     private BigDecimal packageAmount;
 
+    @Size(max = 50, message = "Job type cannot exceed 50 characters")
     private String jobType;
+
+    @FutureOrPresent(message = "Job deadline must be today or in the future")
     private LocalDate deadline;
+
     private JobStatus status;
 
     public JobRequest() {

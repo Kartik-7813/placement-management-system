@@ -7,6 +7,7 @@ import com.placementmanagementsystem.enums.InterviewResult;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 public class InterviewRequest {
 
@@ -19,12 +20,13 @@ public class InterviewRequest {
     private Integer roundNumber;
 
     @NotBlank(message = "Round type is required")
+    @Size(max = 50, message = "Round type cannot exceed 50 characters")
     private String roundType;
 
     @NotNull(message = "Scheduled date and time are required")
     private LocalDateTime scheduledOn;
     
-   
+    @Size(max = 150, message = "Interviewer name cannot exceed 150 characters")
     private String interviewer;
     
     private String feedback;

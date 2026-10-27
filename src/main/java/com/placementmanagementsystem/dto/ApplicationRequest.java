@@ -1,6 +1,7 @@
 package com.placementmanagementsystem.dto;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public class ApplicationRequest {
 
@@ -10,7 +11,9 @@ public class ApplicationRequest {
     @NotNull(message = "Job ID is required")
     private Long jobId;
 
+    @Size(max = 255, message = "Resume URL cannot exceed 255 characters")
     private String resumeUrl;
+
     private String remarks;
 
     public ApplicationRequest() {
