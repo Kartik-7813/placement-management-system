@@ -113,30 +113,30 @@ The application adopts a clean, layered architectural pattern adhering to separa
 
 ```mermaid
 graph TD
-    Client([HTTP / REST Client])
+    Client["HTTP / REST Client"]
 
-    subgraph Presentation Layer
-        Controller[REST Controllers<br/>Student, Company, Job, Application, Interview, Placement, Dashboard]
-        Advices[GlobalExceptionHandler<br/>@RestControllerAdvice]
+    subgraph Presentation ["Presentation Layer"]
+        Controller["REST Controllers<br/>Student, Company, Job, Application, Interview, Placement, Dashboard"]
+        Advices["GlobalExceptionHandler<br/>@RestControllerAdvice"]
     end
 
-    subgraph Transfer Layer
-        DTOReq[Request DTOs<br/>+ Jakarta Bean Validation]
-        DTOResp[Response DTOs<br/>Immutable Payloads]
+    subgraph Transfer ["Transfer Layer"]
+        DTOReq["Request DTOs<br/>+ Jakarta Bean Validation"]
+        DTOResp["Response DTOs<br/>Immutable Payloads"]
     end
 
-    subgraph Business Service Layer
-        Services[Service Services<br/>@Service, @Transactional<br/>State Machine & Invariant Validation]
+    subgraph Business ["Business Service Layer"]
+        Services["Service Services<br/>@Service, @Transactional<br/>State Machine & Invariant Validation"]
     end
 
-    subgraph Data Access Layer
-        Repos[Spring Data Repositories<br/>JpaRepository + Custom JPQL Queries]
+    subgraph Data ["Data Access Layer"]
+        Repos["Spring Data Repositories<br/>JpaRepository + Custom JPQL Queries"]
     end
 
-    subgraph Persistence Layer
-        Entities[JPA Entities & Enums<br/>Hibernate ORM 7.x]
-        Hikari[HikariCP Connection Pool]
-        MySQL[(MySQL 8.0 Database)]
+    subgraph Persistence ["Persistence Layer"]
+        Entities["JPA Entities & Enums<br/>Hibernate ORM 7.x"]
+        Hikari["HikariCP Connection Pool"]
+        MySQL["MySQL 8.0 Database"]
     end
 
     Client -->|JSON Request| Controller
