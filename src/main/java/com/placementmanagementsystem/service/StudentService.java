@@ -66,7 +66,7 @@ public class StudentService {
 
     @Transactional(readOnly = true)
     public StudentResponse getStudentById(Long id) {
-        securityHelper.enforceStudentOwnership(id);
+        securityHelper.enforceStudentReadAccess(id);
         Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + id));
         return toResponse(student);
@@ -114,7 +114,7 @@ public class StudentService {
 
     @Transactional(readOnly = true)
     public List<SkillResponse> getStudentSkills(Long studentId) {
-        securityHelper.enforceStudentOwnership(studentId);
+        securityHelper.enforceStudentReadAccess(studentId);
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + studentId));
 

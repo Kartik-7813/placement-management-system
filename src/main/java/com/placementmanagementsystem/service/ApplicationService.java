@@ -128,6 +128,16 @@ public class ApplicationService {
     @Transactional(readOnly = true)
     public Page<ApplicationResponse> getAllApplications(Long studentId, Long jobId,
                                                         ApplicationStatus status, Pageable pageable) {
+        // Enforce student privacy: students can only see their own applications.
+        if (securityHelper.hasAuthority("ROLE_STUDENT")) {
+            Student currentStudent = securityHelper.getCurrentStudent();
+            if (studentId != null && !studentId.equals(currentStudent.getStudentId())) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "You do not have permission to view another student's applications");
+            }
+            studentId = currentStudent.getStudentId();
+        }
+
         Page<Application> applications = applicationRepository.searchApplications(
                 studentId, jobId, status, pageable);
         return applications.map(this::toResponse);
@@ -141,7 +151,8 @@ public class ApplicationService {
                 .orElseThrow(() -> new ApplicationNotFoundException(
                         "Application not found with id: " + id));
 
-        securityHelper.enforceStudentOwnership(application.getStudent().getStudentId());
+        // Allow ADMIN and COMPANY to read candidate applications; restrict STUDENT to their own application.
+        securityHelper.enforceStudentReadAccess(application.getStudent().getStudentId());
 
         return toResponse(application);
     }
@@ -155,6 +166,12 @@ public class ApplicationService {
 
         securityHelper.enforceStudentOwnership(existingApplication.getStudent().getStudentId());
 
+        if (existingApplication.getStatus() == ApplicationStatus.SELECTED
+                || existingApplication.getStatus() == ApplicationStatus.REJECTED
+                || existingApplication.getStatus() == ApplicationStatus.WITHDRAWN) {
+            throw new IllegalStateException("Cannot update application in terminal status: " + existingApplication.getStatus());
+        }
+
         // Only allow updating resumeUrl and remarks
         existingApplication.setResumeUrl(request.getResumeUrl());
         existingApplication.setRemarks(request.getRemarks());
@@ -166,6 +183,11 @@ public class ApplicationService {
     // ========== UPDATE APPLICATION STATUS (controlled workflow) ==========
 
     public ApplicationResponse updateApplicationStatus(Long id, ApplicationStatus newStatus) {
+        if (securityHelper.hasAuthority("ROLE_STUDENT")) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Students are not permitted to change application status");
+        }
+
         Application application = applicationRepository.findById(id)
                 .orElseThrow(() -> new ApplicationNotFoundException(
                         "Application not found with id: " + id));

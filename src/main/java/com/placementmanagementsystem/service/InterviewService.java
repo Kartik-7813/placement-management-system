@@ -128,7 +128,7 @@ public class InterviewService {
                 .orElseThrow(() -> new InterviewNotFoundException(
                         "Interview not found with id: " + id));
 
-        securityHelper.enforceStudentOwnership(interview.getApplication().getStudent().getStudentId());
+        securityHelper.enforceStudentReadAccess(interview.getApplication().getStudent().getStudentId());
 
         return toResponse(interview);
     }
@@ -146,7 +146,7 @@ public class InterviewService {
                 .orElseThrow(() -> new ApplicationNotFoundException(
                         "Application not found with id: " + applicationId));
 
-        securityHelper.enforceStudentOwnership(application.getStudent().getStudentId());
+        securityHelper.enforceStudentReadAccess(application.getStudent().getStudentId());
 
         List<Interview> interviews =
                 interviewRepository

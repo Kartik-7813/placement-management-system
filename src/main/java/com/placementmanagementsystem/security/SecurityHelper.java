@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Helper component for extracting authenticated user details from the SecurityContext
- * and performing student ownership verification.
+ * and performing student ownership verification across read and write boundaries.
  */
 @Component
 public class SecurityHelper {
@@ -58,14 +58,42 @@ public class SecurityHelper {
     }
 
     /**
-     * Enforces that the currently authenticated user is either an ADMIN or the student identified by targetStudentId.
-     * Throws AccessDeniedException if the user is a student attempting to access another student's record.
+     * Enforces read access on student-associated resources:
+     * - ROLE_ADMIN and ROLE_COMPANY can read candidate profiles, applications, interviews, and placements.
+     * - ROLE_STUDENT can only read their own resource matching targetStudentId.
+     * - Other roles or unauthenticated users are denied.
+     */
+    public void enforceStudentReadAccess(Long targetStudentId) {
+        if (hasAuthority("ROLE_ADMIN") || hasAuthority("ROLE_COMPANY")) {
+            return;
+        }
+        if (hasAuthority("ROLE_STUDENT")) {
+            if (targetStudentId == null) {
+                throw new AccessDeniedException("Invalid target student identifier");
+            }
+            Student currentStudent = getCurrentStudent();
+            if (!currentStudent.getStudentId().equals(targetStudentId)) {
+                throw new AccessDeniedException("You do not have permission to access another student's resource");
+            }
+            return;
+        }
+        throw new AccessDeniedException("Access denied");
+    }
+
+    /**
+     * Enforces strict student ownership on mutation operations (profile updates, skill additions, application submissions):
+     * - ROLE_ADMIN can perform management actions.
+     * - ROLE_STUDENT can only mutate their own resource matching targetStudentId.
+     * - ROLE_COMPANY cannot mutate student resources.
      */
     public void enforceStudentOwnership(Long targetStudentId) {
         if (hasAuthority("ROLE_ADMIN")) {
-            return; // Admins bypass student ownership
+            return;
         }
         if (hasAuthority("ROLE_STUDENT")) {
+            if (targetStudentId == null) {
+                throw new AccessDeniedException("Invalid target student identifier");
+            }
             Student currentStudent = getCurrentStudent();
             if (!currentStudent.getStudentId().equals(targetStudentId)) {
                 throw new AccessDeniedException("You do not have permission to access or modify another student's resource");

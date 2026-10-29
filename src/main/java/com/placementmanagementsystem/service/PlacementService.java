@@ -145,7 +145,7 @@ public class PlacementService {
                 .orElseThrow(() -> new PlacementNotFoundException(
                         "Placement not found with id: " + id));
 
-        securityHelper.enforceStudentOwnership(placement.getStudent().getStudentId());
+        securityHelper.enforceStudentReadAccess(placement.getStudent().getStudentId());
 
         return toResponse(placement);
     }
@@ -157,7 +157,7 @@ public class PlacementService {
     @Transactional(readOnly = true)
     public PlacementResponse getPlacementByStudent(Long studentId) {
 
-        securityHelper.enforceStudentOwnership(studentId);
+        securityHelper.enforceStudentReadAccess(studentId);
 
         studentRepository.findById(studentId)
                 .orElseThrow(() -> new StudentNotFoundException(
@@ -179,7 +179,7 @@ public class PlacementService {
     @Transactional(readOnly = true)
     public List<PlacementResponse> getPlacementHistoryByStudent(Long studentId) {
 
-        securityHelper.enforceStudentOwnership(studentId);
+        securityHelper.enforceStudentReadAccess(studentId);
 
         studentRepository.findById(studentId)
                 .orElseThrow(() -> new StudentNotFoundException(
