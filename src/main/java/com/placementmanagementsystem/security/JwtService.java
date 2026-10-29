@@ -52,6 +52,10 @@ public class JwtService {
         this.jwtExpirationMs = jwtExpirationMs;
     }
 
+    public long getJwtExpirationMs() {
+        return jwtExpirationMs;
+    }
+
     /**
      * Generates a signed JWT token for the specified user details with no extra claims.
      */

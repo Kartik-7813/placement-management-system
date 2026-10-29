@@ -50,6 +50,25 @@ public class GlobalExceptionHandler {
     }
 
     // =========================================================
+    // 401 - UNAUTHORIZED / AUTHENTICATION FAILURE
+    // =========================================================
+
+    @ExceptionHandler({
+            org.springframework.security.authentication.BadCredentialsException.class,
+            org.springframework.security.core.AuthenticationException.class
+    })
+    public ResponseEntity<ErrorResponse> handleAuthenticationException(
+            Exception exception,
+            HttpServletRequest request) {
+
+        return buildErrorResponse(
+                HttpStatus.UNAUTHORIZED,
+                "Invalid email or password",
+                request
+        );
+    }
+
+    // =========================================================
     // 409 - CONFLICT
     // =========================================================
 
