@@ -8,6 +8,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,6 +39,7 @@ public class PlacementController {
     // CREATE PLACEMENT
     // =========================================================
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<PlacementResponse> createPlacement(
             @Valid @RequestBody PlacementRequest request) {
@@ -55,6 +57,7 @@ public class PlacementController {
     // GET ALL PLACEMENTS
     // =========================================================
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @GetMapping
     public ResponseEntity<Page<PlacementResponse>> getAllPlacements(
             @RequestParam(required = false) PlacementStatus status,
@@ -77,6 +80,7 @@ public class PlacementController {
     // GET PLACEMENT BY ID
     // =========================================================
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/{id}")
     public ResponseEntity<PlacementResponse> getPlacementById(
             @PathVariable Long id) {
@@ -91,6 +95,7 @@ public class PlacementController {
     // GET PLACEMENT BY STUDENT
     // =========================================================
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/student/{studentId}")
     public ResponseEntity<PlacementResponse> getPlacementByStudent(
             @PathVariable Long studentId) {
@@ -105,6 +110,7 @@ public class PlacementController {
     // GET PLACEMENT HISTORY BY STUDENT
     // =========================================================
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/student/{studentId}/history")
     public ResponseEntity<List<PlacementResponse>> getPlacementHistoryByStudent(
             @PathVariable Long studentId) {
@@ -119,6 +125,7 @@ public class PlacementController {
     // UPDATE PLACEMENT DETAILS
     // =========================================================
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<PlacementResponse> updatePlacement(
             @PathVariable Long id,
@@ -134,6 +141,7 @@ public class PlacementController {
     // UPDATE PLACEMENT STATUS
     // =========================================================
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}/status")
     public ResponseEntity<PlacementResponse> updatePlacementStatus(
             @PathVariable Long id,
@@ -147,4 +155,4 @@ public class PlacementController {
 
         return ResponseEntity.ok(response);
     }
-}
+}

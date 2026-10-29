@@ -47,6 +47,9 @@ class PlacementServiceTest {
     @Mock
     private ApplicationRepository applicationRepository;
 
+    @Mock
+    private com.placementmanagementsystem.security.SecurityHelper securityHelper;
+
     @InjectMocks
     private PlacementService placementService;
 

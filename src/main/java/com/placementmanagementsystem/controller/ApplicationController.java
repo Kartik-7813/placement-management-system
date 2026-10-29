@@ -6,6 +6,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,6 +34,7 @@ public class ApplicationController {
         this.applicationService = applicationService;
     }
 
+    @PreAuthorize("hasRole('STUDENT')")
     @PostMapping
     public ResponseEntity<ApplicationResponse> createApplication(
             @Valid @RequestBody ApplicationRequest request) {
@@ -40,6 +42,7 @@ public class ApplicationController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping
     public ResponseEntity<Page<ApplicationResponse>> getAllApplications(
             @RequestParam(required = false) Long studentId,
@@ -51,12 +54,14 @@ public class ApplicationController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/{id}")
     public ResponseEntity<ApplicationResponse> getApplicationById(@PathVariable Long id) {
         ApplicationResponse response = applicationService.getApplicationById(id);
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
     @PutMapping("/{id}")
     public ResponseEntity<ApplicationResponse> updateApplication(
         @PathVariable Long id,
@@ -67,6 +72,7 @@ public class ApplicationController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @PutMapping("/{id}/status")
     public ResponseEntity<ApplicationResponse> updateApplicationStatus(
             @PathVariable Long id, @RequestParam ApplicationStatus status) {

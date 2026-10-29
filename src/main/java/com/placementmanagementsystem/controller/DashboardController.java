@@ -18,6 +18,7 @@ public class DashboardController {
         this.dashboardService = dashboardService;
     }
 
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/summary")
     public ResponseEntity<DashboardResponse> getDashboardSummary() {
 

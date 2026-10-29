@@ -26,10 +26,16 @@ public class StudentService {
 
     private final StudentRepository studentRepository;
     private final SkillRepository skillRepository;
+    private final com.placementmanagementsystem.security.SecurityHelper securityHelper;
 
-    public StudentService(StudentRepository studentRepository, SkillRepository skillRepository) {
+    public StudentService(
+            StudentRepository studentRepository,
+            SkillRepository skillRepository,
+            com.placementmanagementsystem.security.SecurityHelper securityHelper
+    ) {
         this.studentRepository = studentRepository;
         this.skillRepository = skillRepository;
+        this.securityHelper = securityHelper;
     }
 
     public StudentResponse createStudent(StudentRequest request) {
@@ -60,12 +66,14 @@ public class StudentService {
 
     @Transactional(readOnly = true)
     public StudentResponse getStudentById(Long id) {
+        securityHelper.enforceStudentOwnership(id);
         Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + id));
         return toResponse(student);
     }
 
     public StudentResponse updateStudent(Long id, StudentRequest request) {
+        securityHelper.enforceStudentOwnership(id);
         Student existingStudent = studentRepository.findById(id)
                 .orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + id));
 
@@ -106,6 +114,7 @@ public class StudentService {
 
     @Transactional(readOnly = true)
     public List<SkillResponse> getStudentSkills(Long studentId) {
+        securityHelper.enforceStudentOwnership(studentId);
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + studentId));
 
@@ -115,6 +124,7 @@ public class StudentService {
     }
 
     public List<SkillResponse> assignSkillToStudent(Long studentId, Long skillId) {
+        securityHelper.enforceStudentOwnership(studentId);
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + studentId));
 
@@ -136,6 +146,7 @@ public class StudentService {
     }
 
     public void removeSkillFromStudent(Long studentId, Long skillId) {
+        securityHelper.enforceStudentOwnership(studentId);
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + studentId));
 

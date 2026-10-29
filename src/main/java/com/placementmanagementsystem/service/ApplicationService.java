@@ -36,18 +36,24 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final StudentRepository studentRepository;
     private final JobRepository jobRepository;
+    private final com.placementmanagementsystem.security.SecurityHelper securityHelper;
 
     public ApplicationService(ApplicationRepository applicationRepository,
                               StudentRepository studentRepository,
-                              JobRepository jobRepository) {
+                              JobRepository jobRepository,
+                              com.placementmanagementsystem.security.SecurityHelper securityHelper) {
         this.applicationRepository = applicationRepository;
         this.studentRepository = studentRepository;
         this.jobRepository = jobRepository;
+        this.securityHelper = securityHelper;
     }
 
     // ========== CREATE APPLICATION ==========
 
     public ApplicationResponse createApplication(ApplicationRequest request) {
+
+        // Enforce that a student can only create applications for their own student profile
+        securityHelper.enforceStudentOwnership(request.getStudentId());
 
         // 1. Student must exist
         Student student = studentRepository.findById(request.getStudentId())
@@ -134,6 +140,9 @@ public class ApplicationService {
         Application application = applicationRepository.findById(id)
                 .orElseThrow(() -> new ApplicationNotFoundException(
                         "Application not found with id: " + id));
+
+        securityHelper.enforceStudentOwnership(application.getStudent().getStudentId());
+
         return toResponse(application);
     }
 
@@ -143,6 +152,8 @@ public class ApplicationService {
         Application existingApplication = applicationRepository.findById(id)
                 .orElseThrow(() -> new ApplicationNotFoundException(
                         "Application not found with id: " + id));
+
+        securityHelper.enforceStudentOwnership(existingApplication.getStudent().getStudentId());
 
         // Only allow updating resumeUrl and remarks
         existingApplication.setResumeUrl(request.getResumeUrl());

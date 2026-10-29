@@ -12,6 +12,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,12 +35,14 @@ public class StudentController {
         this.studentService = studentService;
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<StudentResponse> createStudent(@Valid @RequestBody StudentRequest request) {
         StudentResponse response = studentService.createStudent(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @GetMapping
     public ResponseEntity<Page<StudentResponse>> getAllStudents(
             @RequestParam(required = false) String department,
@@ -50,30 +53,35 @@ public class StudentController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/{id}")
     public ResponseEntity<StudentResponse> getStudentById(@PathVariable Long id) {
         StudentResponse response = studentService.getStudentById(id);
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
     @PutMapping("/{id}")
     public ResponseEntity<StudentResponse> updateStudent(@PathVariable Long id, @Valid @RequestBody StudentRequest request) {
         StudentResponse response = studentService.updateStudent(id, request);
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deactivateStudent(@PathVariable Long id) {
         studentService.deactivateStudent(id);
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/{studentId}/skills")
     public ResponseEntity<List<SkillResponse>> getStudentSkills(@PathVariable Long studentId) {
         List<SkillResponse> skills = studentService.getStudentSkills(studentId);
         return ResponseEntity.ok(skills);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
     @PostMapping("/{studentId}/skills/{skillId}")
     public ResponseEntity<List<SkillResponse>> assignSkillToStudent(
             @PathVariable Long studentId,
@@ -82,6 +90,7 @@ public class StudentController {
         return ResponseEntity.ok(skills);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
     @DeleteMapping("/{studentId}/skills/{skillId}")
     public ResponseEntity<Void> removeSkillFromStudent(
             @PathVariable Long studentId,

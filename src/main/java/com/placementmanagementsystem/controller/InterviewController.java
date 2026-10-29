@@ -8,6 +8,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,6 +41,7 @@ public class InterviewController {
     // POST /api/interviews
     // =========================================================
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @PostMapping
     public ResponseEntity<InterviewResponse> scheduleInterview(
             @Valid @RequestBody InterviewRequest request) {
@@ -55,6 +57,7 @@ public class InterviewController {
     // GET /api/interviews
     // =========================================================
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @GetMapping
     public ResponseEntity<Page<InterviewResponse>> getAllInterviews(
             @RequestParam(required = false) Long applicationId,
@@ -80,6 +83,7 @@ public class InterviewController {
     // GET /api/interviews/{id}
     // =========================================================
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/{id}")
     public ResponseEntity<InterviewResponse> getInterviewById(
             @PathVariable Long id) {
@@ -95,6 +99,7 @@ public class InterviewController {
     // GET /api/interviews/application/{applicationId}
     // =========================================================
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/application/{applicationId}")
     public ResponseEntity<List<InterviewResponse>> getInterviewsByApplication(
             @PathVariable Long applicationId) {
@@ -110,6 +115,7 @@ public class InterviewController {
     // PUT /api/interviews/{id}
     // =========================================================
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @PutMapping("/{id}")
     public ResponseEntity<InterviewResponse> updateInterview(
             @PathVariable Long id,
@@ -126,6 +132,7 @@ public class InterviewController {
     // DELETE /api/interviews/{id}
     // =========================================================
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteInterview(
             @PathVariable Long id) {
@@ -134,4 +141,4 @@ public class InterviewController {
 
         return ResponseEntity.noContent().build();
     }
-}
+}

@@ -69,6 +69,22 @@ public class GlobalExceptionHandler {
     }
 
     // =========================================================
+    // 403 - FORBIDDEN / ACCESS DENIED
+    // =========================================================
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(
+            org.springframework.security.access.AccessDeniedException exception,
+            HttpServletRequest request) {
+
+        return buildErrorResponse(
+                HttpStatus.FORBIDDEN,
+                "Access is denied. You do not have permission to access this resource.",
+                request
+        );
+    }
+
+    // =========================================================
     // 409 - CONFLICT
     // =========================================================
 

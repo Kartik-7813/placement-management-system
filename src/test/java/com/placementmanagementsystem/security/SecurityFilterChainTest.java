@@ -65,7 +65,7 @@ class SecurityFilterChainTest {
         mockUser = new User(
                 "user@example.com",
                 "password",
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_STUDENT"))
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"))
         );
     }
 

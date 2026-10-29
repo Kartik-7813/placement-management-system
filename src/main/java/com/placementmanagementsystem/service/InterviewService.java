@@ -25,13 +25,16 @@ public class InterviewService {
 
     private final InterviewRepository interviewRepository;
     private final ApplicationRepository applicationRepository;
+    private final com.placementmanagementsystem.security.SecurityHelper securityHelper;
 
     public InterviewService(
             InterviewRepository interviewRepository,
-            ApplicationRepository applicationRepository) {
+            ApplicationRepository applicationRepository,
+            com.placementmanagementsystem.security.SecurityHelper securityHelper) {
 
         this.interviewRepository = interviewRepository;
         this.applicationRepository = applicationRepository;
+        this.securityHelper = securityHelper;
     }
 
     // =========================================================
@@ -125,6 +128,8 @@ public class InterviewService {
                 .orElseThrow(() -> new InterviewNotFoundException(
                         "Interview not found with id: " + id));
 
+        securityHelper.enforceStudentOwnership(interview.getApplication().getStudent().getStudentId());
+
         return toResponse(interview);
     }
 
@@ -137,9 +142,11 @@ public class InterviewService {
             Long applicationId) {
 
         // First verify application exists
-        applicationRepository.findById(applicationId)
+        Application application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new ApplicationNotFoundException(
                         "Application not found with id: " + applicationId));
+
+        securityHelper.enforceStudentOwnership(application.getStudent().getStudentId());
 
         List<Interview> interviews =
                 interviewRepository

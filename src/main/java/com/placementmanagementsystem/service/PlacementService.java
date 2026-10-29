@@ -38,15 +38,18 @@ public class PlacementService {
     private final PlacementRepository placementRepository;
     private final StudentRepository studentRepository;
     private final ApplicationRepository applicationRepository;
+    private final com.placementmanagementsystem.security.SecurityHelper securityHelper;
 
     public PlacementService(
             PlacementRepository placementRepository,
             StudentRepository studentRepository,
-            ApplicationRepository applicationRepository) {
+            ApplicationRepository applicationRepository,
+            com.placementmanagementsystem.security.SecurityHelper securityHelper) {
 
         this.placementRepository = placementRepository;
         this.studentRepository = studentRepository;
         this.applicationRepository = applicationRepository;
+        this.securityHelper = securityHelper;
     }
 
     // =========================================================
@@ -142,6 +145,8 @@ public class PlacementService {
                 .orElseThrow(() -> new PlacementNotFoundException(
                         "Placement not found with id: " + id));
 
+        securityHelper.enforceStudentOwnership(placement.getStudent().getStudentId());
+
         return toResponse(placement);
     }
 
@@ -151,6 +156,8 @@ public class PlacementService {
 
     @Transactional(readOnly = true)
     public PlacementResponse getPlacementByStudent(Long studentId) {
+
+        securityHelper.enforceStudentOwnership(studentId);
 
         studentRepository.findById(studentId)
                 .orElseThrow(() -> new StudentNotFoundException(
@@ -171,6 +178,8 @@ public class PlacementService {
 
     @Transactional(readOnly = true)
     public List<PlacementResponse> getPlacementHistoryByStudent(Long studentId) {
+
+        securityHelper.enforceStudentOwnership(studentId);
 
         studentRepository.findById(studentId)
                 .orElseThrow(() -> new StudentNotFoundException(

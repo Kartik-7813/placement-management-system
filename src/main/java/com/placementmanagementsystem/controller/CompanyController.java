@@ -20,6 +20,7 @@ import com.placementmanagementsystem.dto.CompanyRequest;
 import com.placementmanagementsystem.dto.CompanyResponse;
 import com.placementmanagementsystem.enums.CompanyStatus;
 import com.placementmanagementsystem.service.CompanyService;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import jakarta.validation.Valid;
 
@@ -33,6 +34,7 @@ public class CompanyController {
         this.companyService = companyService;
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<CompanyResponse> createCompany(@Valid @RequestBody CompanyRequest request) {
         CompanyResponse response = companyService.createCompany(request);
@@ -54,12 +56,14 @@ public class CompanyController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @PutMapping("/{id}")
     public ResponseEntity<CompanyResponse> updateCompany(@PathVariable Long id, @Valid @RequestBody CompanyRequest request) {
         CompanyResponse response = companyService.updateCompany(id, request);
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deactivateCompany(@PathVariable Long id) {
         companyService.deactivateCompany(id);
