@@ -47,6 +47,10 @@ public class InterviewService {
                 .orElseThrow(() -> new ApplicationNotFoundException(
                         "Application not found with id: " + request.getApplicationId()));
 
+        if (securityHelper.hasAuthority("ROLE_COMPANY")) {
+            securityHelper.enforceCompanyOwnership(application.getJob().getCompany().getCompanyId());
+        }
+
         // Interview can only be scheduled for shortlisted/interviewing applications
         if (application.getStatus() != ApplicationStatus.SHORTLISTED
                 && application.getStatus() != ApplicationStatus.INTERVIEWING) {
@@ -170,6 +174,10 @@ public class InterviewService {
         Interview existingInterview = interviewRepository.findById(id)
                 .orElseThrow(() -> new InterviewNotFoundException(
                         "Interview not found with id: " + id));
+
+        if (securityHelper.hasAuthority("ROLE_COMPANY")) {
+            securityHelper.enforceCompanyOwnership(existingInterview.getApplication().getJob().getCompany().getCompanyId());
+        }
 
         boolean applicationChanged = request.getApplicationId() != null
                 && !request.getApplicationId().equals(existingInterview.getApplication().getApplicationId());

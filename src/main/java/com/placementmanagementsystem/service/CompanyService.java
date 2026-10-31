@@ -6,6 +6,7 @@ import com.placementmanagementsystem.entity.Company;
 import com.placementmanagementsystem.enums.CompanyStatus;
 import com.placementmanagementsystem.exception.CompanyNotFoundException;
 import com.placementmanagementsystem.repository.CompanyRepository;
+import com.placementmanagementsystem.security.SecurityHelper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -16,9 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompanyService {
 
     private final CompanyRepository companyRepository;
+    private final SecurityHelper securityHelper;
 
-    public CompanyService(CompanyRepository companyRepository) {
+    public CompanyService(CompanyRepository companyRepository, SecurityHelper securityHelper) {
         this.companyRepository = companyRepository;
+        this.securityHelper = securityHelper;
     }
 
     public CompanyResponse createCompany(CompanyRequest request) {
@@ -47,6 +50,9 @@ public class CompanyService {
     }
 
     public CompanyResponse updateCompany(Long id, CompanyRequest request) {
+        // Enforce company ownership: company users can update only their own company profile
+        securityHelper.enforceCompanyOwnership(id);
+
         Company existingCompany = companyRepository.findById(id)
                 .orElseThrow(() -> new CompanyNotFoundException("Company not found with id: " + id));
 

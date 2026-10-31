@@ -1,14 +1,18 @@
 package com.placementmanagementsystem.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.placementmanagementsystem.enums.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
@@ -41,6 +45,16 @@ public class User {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * Optional company association for ROLE_COMPANY accounts.
+     * Null for student and administrator accounts.
+     * Lazy fetching and JsonIgnore prevent credential or cascade leakage.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = true)
+    @JsonIgnore
+    private Company company;
+
     public User() {
     }
 
@@ -52,6 +66,15 @@ public class User {
         this.createdAt = LocalDateTime.now();
     }
 
+    public User(String email, String password, Role role, Company company) {
+        this.email = email;
+        this.password = password;
+        this.role = role;
+        this.company = company;
+        this.enabled = true;
+        this.createdAt = LocalDateTime.now();
+    }
+
     public User(Long userId, String email, String password, Role role, boolean enabled, LocalDateTime createdAt) {
         this.userId = userId;
         this.email = email;
@@ -59,6 +82,16 @@ public class User {
         this.role = role;
         this.enabled = enabled;
         this.createdAt = createdAt;
+    }
+
+    public User(Long userId, String email, String password, Role role, boolean enabled, LocalDateTime createdAt, Company company) {
+        this.userId = userId;
+        this.email = email;
+        this.password = password;
+        this.role = role;
+        this.enabled = enabled;
+        this.createdAt = createdAt;
+        this.company = company;
     }
 
     @PrePersist
@@ -116,6 +149,14 @@ public class User {
         this.createdAt = createdAt;
     }
 
+    public Company getCompany() {
+        return company;
+    }
+
+    public void setCompany(Company company) {
+        this.company = company;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -136,6 +177,7 @@ public class User {
                 ", role=" + role +
                 ", enabled=" + enabled +
                 ", createdAt=" + createdAt +
+                ", companyId=" + (company != null ? company.getCompanyId() : null) +
                 '}';
     }
 }

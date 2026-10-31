@@ -192,6 +192,10 @@ public class ApplicationService {
                 .orElseThrow(() -> new ApplicationNotFoundException(
                         "Application not found with id: " + id));
 
+        if (securityHelper.hasAuthority("ROLE_COMPANY")) {
+            securityHelper.enforceCompanyOwnership(application.getJob().getCompany().getCompanyId());
+        }
+
         validateStatusTransition(application.getStatus(), newStatus);
 
         application.setStatus(newStatus);
