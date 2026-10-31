@@ -3,24 +3,33 @@ package com.placementmanagementsystem.service;
 import com.placementmanagementsystem.dto.CompanyRequest;
 import com.placementmanagementsystem.dto.CompanyResponse;
 import com.placementmanagementsystem.entity.Company;
+import com.placementmanagementsystem.entity.Job;
 import com.placementmanagementsystem.enums.CompanyStatus;
+import com.placementmanagementsystem.enums.JobStatus;
 import com.placementmanagementsystem.exception.CompanyNotFoundException;
 import com.placementmanagementsystem.repository.CompanyRepository;
+import com.placementmanagementsystem.repository.JobRepository;
 import com.placementmanagementsystem.security.SecurityHelper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @Transactional
 public class CompanyService {
 
     private final CompanyRepository companyRepository;
+    private final JobRepository jobRepository;
     private final SecurityHelper securityHelper;
 
-    public CompanyService(CompanyRepository companyRepository, SecurityHelper securityHelper) {
+    public CompanyService(CompanyRepository companyRepository,
+                          JobRepository jobRepository,
+                          SecurityHelper securityHelper) {
         this.companyRepository = companyRepository;
+        this.jobRepository = jobRepository;
         this.securityHelper = securityHelper;
     }
 
@@ -76,6 +85,13 @@ public class CompanyService {
 
         existingCompany.setStatus(CompanyStatus.INACTIVE);
         companyRepository.save(existingCompany);
+
+        // Close all currently active jobs belonging to this company within the same transaction
+        List<Job> activeJobs = jobRepository.findByCompany_CompanyIdAndStatus(id, JobStatus.ACTIVE);
+        for (Job job : activeJobs) {
+            job.setStatus(JobStatus.CLOSED);
+        }
+        jobRepository.saveAll(activeJobs);
     }
 
     private CompanyResponse toResponse(Company company) {

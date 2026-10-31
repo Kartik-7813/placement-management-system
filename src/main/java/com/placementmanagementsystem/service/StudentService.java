@@ -77,19 +77,19 @@ public class StudentService {
         Student existingStudent = studentRepository.findById(id)
                 .orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + id));
 
+        // Enforce student email immutability: login email must remain unchanged
+        if (request.getEmail() != null && !existingStudent.getEmail().equalsIgnoreCase(request.getEmail().trim())) {
+            throw new IllegalArgumentException("Student email cannot be updated. Login email must remain unchanged.");
+        }
+
         if (!existingStudent.getRollNumber().equals(request.getRollNumber()) &&
                 studentRepository.existsByRollNumber(request.getRollNumber())) {
             throw new DuplicateStudentException("Student with roll number " + request.getRollNumber() + " already exists");
         }
 
-        if (!existingStudent.getEmail().equals(request.getEmail()) &&
-                studentRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateStudentException("Student with email " + request.getEmail() + " already exists");
-        }
-
         existingStudent.setRollNumber(request.getRollNumber());
         existingStudent.setName(request.getName());
-        existingStudent.setEmail(request.getEmail());
+        existingStudent.setEmail(existingStudent.getEmail());
         existingStudent.setPhone(request.getPhone());
         existingStudent.setDob(request.getDob());
         existingStudent.setGender(request.getGender());

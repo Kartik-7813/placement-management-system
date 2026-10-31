@@ -10,6 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -205,6 +206,22 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.status", is(409)))
                 .andExpect(jsonPath("$.error", is("Conflict")))
                 .andExpect(jsonPath("$.message", containsString("Database constraint violation")))
+                .andExpect(jsonPath("$.path", is("/api/students")));
+    }
+
+    @Test
+    @DisplayName("Should return 409 Conflict when CannotAcquireLockException (deadlock/concurrency failure) is thrown")
+    void testCannotAcquireLockExceptionReturnsConflictWithoutExposingSql() throws Exception {
+        when(studentService.createStudent(any(StudentRequest.class)))
+                .thenThrow(new CannotAcquireLockException("Deadlock found when trying to get lock; try restarting transaction"));
+
+        mockMvc.perform(post("/api/students")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_STUDENT_JSON))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status", is(409)))
+                .andExpect(jsonPath("$.error", is("Conflict")))
+                .andExpect(jsonPath("$.message", containsString("A concurrency conflict occurred while processing the request")))
                 .andExpect(jsonPath("$.path", is("/api/students")));
     }
 

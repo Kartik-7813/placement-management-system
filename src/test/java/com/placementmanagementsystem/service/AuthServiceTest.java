@@ -178,4 +178,25 @@ class AuthServiceTest {
         assertEquals("Invalid email or password", ex.getMessage());
         verify(jwtService, never()).generateToken(any());
     }
+
+    @Test
+    @DisplayName("AuthService class must be annotated with @Transactional(readOnly = true)")
+    void authServiceClass_ShouldHaveTransactionalReadOnly() {
+        org.springframework.transaction.annotation.Transactional annotation =
+                AuthService.class.getAnnotation(org.springframework.transaction.annotation.Transactional.class);
+
+        assertNotNull(annotation, "AuthService class must have @Transactional annotation");
+        assertTrue(annotation.readOnly(), "AuthService default transaction mode must be readOnly = true");
+    }
+
+    @Test
+    @DisplayName("registerStudent method must be explicitly annotated with write @Transactional")
+    void registerStudentMethod_ShouldHaveWriteTransactional() throws NoSuchMethodException {
+        var method = AuthService.class.getMethod("registerStudent", RegisterRequest.class);
+        org.springframework.transaction.annotation.Transactional annotation =
+                method.getAnnotation(org.springframework.transaction.annotation.Transactional.class);
+
+        assertNotNull(annotation, "registerStudent method must have @Transactional annotation");
+        assertFalse(annotation.readOnly(), "registerStudent method must be a write transaction (readOnly = false)");
+    }
 }

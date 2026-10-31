@@ -90,7 +90,7 @@ class CompanyOwnershipTest {
     @BeforeEach
     void setUp() {
         jobService = new JobService(jobRepository, companyRepository, securityHelper);
-        companyService = new CompanyService(companyRepository, securityHelper);
+        companyService = new CompanyService(companyRepository, jobRepository, securityHelper);
         applicationService = new ApplicationService(applicationRepository, studentRepository, jobRepository, securityHelper);
         interviewService = new InterviewService(interviewRepository, applicationRepository, securityHelper);
 

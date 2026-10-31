@@ -15,11 +15,13 @@ import com.placementmanagementsystem.entity.Application;
 import com.placementmanagementsystem.entity.Job;
 import com.placementmanagementsystem.entity.Student;
 import com.placementmanagementsystem.enums.ApplicationStatus;
+import com.placementmanagementsystem.enums.CompanyStatus;
 import com.placementmanagementsystem.enums.JobStatus;
 import com.placementmanagementsystem.enums.StudentStatus;
 import com.placementmanagementsystem.exception.ApplicationAlreadyExistsException;
 import com.placementmanagementsystem.exception.ApplicationDeadlinePassedException;
 import com.placementmanagementsystem.exception.ApplicationNotFoundException;
+import com.placementmanagementsystem.exception.InactiveCompanyException;
 import com.placementmanagementsystem.exception.InactiveStudentException;
 import com.placementmanagementsystem.exception.JobNotAcceptingApplicationsException;
 import com.placementmanagementsystem.exception.JobNotFoundException;
@@ -66,8 +68,8 @@ public class ApplicationService {
                     "Inactive student cannot submit applications (student id: " + request.getStudentId() + ")");
         }
 
-        // 3. Job must exist
-        Job job = jobRepository.findById(request.getJobId())
+        // 3. Job must exist - acquire pessimistic read lock to coordinate with company deactivation and job closure
+        Job job = jobRepository.findByIdWithLock(request.getJobId())
                 .orElseThrow(() -> new JobNotFoundException(
                         "Job not found with id: " + request.getJobId()));
 
@@ -76,6 +78,13 @@ public class ApplicationService {
             throw new JobNotAcceptingApplicationsException(
                     "Job is not accepting applications (job id: " + request.getJobId()
                             + ", status: " + job.getStatus() + ")");
+        }
+
+        // 5. Job's company must be ACTIVE
+        if (job.getCompany().getStatus() == CompanyStatus.INACTIVE) {
+            throw new InactiveCompanyException(
+                    "Cannot apply to a job belonging to an inactive company (company id: "
+                            + job.getCompany().getCompanyId() + ")");
         }
 
         // 5. Check application deadline

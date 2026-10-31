@@ -1,13 +1,17 @@
 package com.placementmanagementsystem.service;
 
+import com.placementmanagementsystem.dto.ApplicationRequest;
+import com.placementmanagementsystem.dto.ApplicationResponse;
 import com.placementmanagementsystem.dto.ApplicationUpdateRequest;
 import com.placementmanagementsystem.entity.Application;
 import com.placementmanagementsystem.entity.Company;
 import com.placementmanagementsystem.entity.Job;
 import com.placementmanagementsystem.entity.Student;
 import com.placementmanagementsystem.enums.ApplicationStatus;
+import com.placementmanagementsystem.enums.CompanyStatus;
 import com.placementmanagementsystem.enums.JobStatus;
 import com.placementmanagementsystem.enums.StudentStatus;
+import com.placementmanagementsystem.exception.InactiveCompanyException;
 import com.placementmanagementsystem.repository.ApplicationRepository;
 import com.placementmanagementsystem.repository.JobRepository;
 import com.placementmanagementsystem.repository.StudentRepository;
@@ -190,5 +194,56 @@ class ApplicationServiceSecurityTest {
                 applicationService.updateApplicationStatus(50L, ApplicationStatus.SHORTLISTED));
 
         assertEquals("Students are not permitted to change application status", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("createApplication throws InactiveCompanyException when job belongs to an INACTIVE company")
+    void createApplication_WhenCompanyIsInactive_ThrowsInactiveCompanyException() {
+        Company inactiveCompany = new Company();
+        inactiveCompany.setCompanyId(10L);
+        inactiveCompany.setName("Inactive Corp");
+        inactiveCompany.setStatus(CompanyStatus.INACTIVE);
+
+        mockJob.setCompany(inactiveCompany);
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(mockStudent));
+        when(jobRepository.findByIdWithLock(100L)).thenReturn(Optional.of(mockJob));
+
+        ApplicationRequest request = new ApplicationRequest(1L, 100L, "https://resume.pdf", "Applying");
+
+        InactiveCompanyException ex = assertThrows(InactiveCompanyException.class,
+                () -> applicationService.createApplication(request));
+
+        assertEquals("Cannot apply to a job belonging to an inactive company (company id: 10)", ex.getMessage());
+        verify(applicationRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createApplication succeeds when job belongs to an ACTIVE company")
+    void createApplication_WhenCompanyIsActive_Succeeds() {
+        Company activeCompany = new Company();
+        activeCompany.setCompanyId(10L);
+        activeCompany.setName("Active Corp");
+        activeCompany.setStatus(CompanyStatus.ACTIVE);
+
+        mockJob.setCompany(activeCompany);
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(mockStudent));
+        when(jobRepository.findByIdWithLock(100L)).thenReturn(Optional.of(mockJob));
+        when(applicationRepository.existsByStudent_StudentIdAndJob_JobId(1L, 100L)).thenReturn(false);
+        when(applicationRepository.save(any(Application.class))).thenAnswer(i -> {
+            Application app = i.getArgument(0);
+            app.setApplicationId(77L);
+            return app;
+        });
+
+        ApplicationRequest request = new ApplicationRequest(1L, 100L, "https://resume.pdf", "Applying");
+
+        ApplicationResponse response = applicationService.createApplication(request);
+
+        assertNotNull(response);
+        assertEquals(77L, response.getApplicationId());
+        assertEquals(ApplicationStatus.APPLIED, response.getStatus());
+        verify(applicationRepository).save(any(Application.class));
     }
 }
