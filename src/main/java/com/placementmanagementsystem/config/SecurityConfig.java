@@ -72,6 +72,13 @@ public class SecurityConfig {
                         // Public auth endpoints for registration and login
                         .requestMatchers("/api/auth/**").permitAll()
 
+                        // OpenAPI / Swagger UI documentation endpoints
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
+
                         // Error dispatch
                         .requestMatchers("/error").permitAll()
 

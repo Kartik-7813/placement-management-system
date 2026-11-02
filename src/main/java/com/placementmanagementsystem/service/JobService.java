@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Service
 @Transactional
@@ -37,6 +38,10 @@ public class JobService {
     }
 
     public JobResponse createJob(JobRequest request) {
+        if (request.getDeadline() != null && request.getDeadline().isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Job deadline must be today or in the future");
+        }
+
         Long targetCompanyId;
         if (securityHelper.hasAuthority("ROLE_COMPANY")) {
             Company authenticatedCompany = securityHelper.getCurrentCompany();
@@ -117,7 +122,13 @@ public class JobService {
         existingJob.setMinCgpa(request.getMinCgpa());
         existingJob.setPackageAmount(request.getPackageAmount());
         existingJob.setJobType(request.getJobType());
-        existingJob.setDeadline(request.getDeadline());
+        if (request.getDeadline() != null) {
+            // Permit keeping the existing deadline (even if expired), but prohibit changing to a new past date
+            if (!request.getDeadline().equals(existingJob.getDeadline()) && request.getDeadline().isBefore(LocalDate.now())) {
+                throw new IllegalArgumentException("Job deadline must be today or in the future");
+            }
+            existingJob.setDeadline(request.getDeadline());
+        }
         if (request.getStatus() != null) {
             existingJob.setStatus(request.getStatus());
         }

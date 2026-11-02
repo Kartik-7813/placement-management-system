@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -219,6 +220,26 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String message = String.format("Required request parameter '%s' is missing", exception.getParameterName());
+
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                message,
+                request
+        );
+    }
+
+    // =========================================================
+    // 400 - INVALID SORT PROPERTY
+    // =========================================================
+
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ErrorResponse> handlePropertyReferenceException(
+            PropertyReferenceException exception,
+            HttpServletRequest request) {
+
+        log.debug("Invalid sort property at path [{}]: {}", request.getRequestURI(), exception.getMessage());
+
+        String message = String.format("Invalid sort property '%s'", exception.getPropertyName());
 
         return buildErrorResponse(
                 HttpStatus.BAD_REQUEST,

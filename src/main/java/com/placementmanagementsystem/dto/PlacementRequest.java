@@ -2,6 +2,7 @@ package com.placementmanagementsystem.dto;
 
 import com.placementmanagementsystem.enums.PlacementStatus;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -17,6 +18,7 @@ public class PlacementRequest {
     @NotNull(message = "Application ID is required")
     private Long applicationId;
 
+    @NotBlank(message = "Job role is required")
     @Size(max = 150, message = "Job role cannot exceed 150 characters")
     private String jobRole;
 

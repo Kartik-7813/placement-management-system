@@ -14,6 +14,7 @@ public class ApplicationRequest {
     @Size(max = 255, message = "Resume URL cannot exceed 255 characters")
     private String resumeUrl;
 
+    @Size(max = 1000, message = "Remarks cannot exceed 1000 characters")
     private String remarks;
 
     public ApplicationRequest() {

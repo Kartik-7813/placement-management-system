@@ -4,6 +4,11 @@ import com.placementmanagementsystem.dto.JobRequest;
 import com.placementmanagementsystem.dto.JobResponse;
 import com.placementmanagementsystem.enums.JobStatus;
 import com.placementmanagementsystem.service.JobService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 
+@Tag(name = "Jobs", description = "Endpoints for posting, searching, and managing job openings")
 @RestController
 @RequestMapping("/api/jobs")
 public class JobController {
@@ -34,6 +40,13 @@ public class JobController {
         this.jobService = jobService;
     }
 
+    @Operation(summary = "Create job", description = "Create a new job posting. Requires ADMIN or COMPANY role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Job created successfully"),
+            @ApiResponse(responseCode = "400", description = "Validation failed or deadline in the past"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot create job for another company"),
+            @ApiResponse(responseCode = "404", description = "Company not found")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @PostMapping
     public ResponseEntity<JobResponse> createJob(@Valid @RequestBody JobRequest request) {
@@ -41,6 +54,12 @@ public class JobController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
+    @SecurityRequirements
+    @Operation(summary = "Get all jobs", description = "Public endpoint to retrieve paginated job listings with optional filtering by title, company, status, and minCgpa.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Jobs retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid sort property or parameter mismatch")
+    })
     @GetMapping
     public ResponseEntity<Page<JobResponse>> getAllJobs(
             @RequestParam(required = false) String title,
@@ -52,12 +71,25 @@ public class JobController {
         return ResponseEntity.ok(response);
     }
 
+    @SecurityRequirements
+    @Operation(summary = "Get job by ID", description = "Public endpoint to retrieve details of a specific job.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Job found"),
+            @ApiResponse(responseCode = "404", description = "Job not found")
+    })
     @GetMapping("/{id}")
     public ResponseEntity<JobResponse> getJobById(@PathVariable Long id) {
         JobResponse response = jobService.getJobById(id);
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Update job", description = "Update an existing job posting. Requires ADMIN or owning COMPANY role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Job updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Validation failed or invalid deadline change"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot update another company's job"),
+            @ApiResponse(responseCode = "404", description = "Job or company not found")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @PutMapping("/{id}")
     public ResponseEntity<JobResponse> updateJob(@PathVariable Long id, @Valid @RequestBody JobRequest request) {
@@ -65,6 +97,12 @@ public class JobController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Close job", description = "Close a job posting so it no longer accepts applications. Requires ADMIN or owning COMPANY role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Job closed successfully"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot close another company's job"),
+            @ApiResponse(responseCode = "404", description = "Job not found")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> closeJob(@PathVariable Long id) {

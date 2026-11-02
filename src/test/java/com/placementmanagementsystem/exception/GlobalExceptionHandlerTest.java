@@ -16,8 +16,14 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.placementmanagementsystem.entity.Student;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.core.PropertyReferenceException;
+import org.springframework.data.core.TypeInformation;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -237,5 +243,19 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.error", is("Internal Server Error")))
                 .andExpect(jsonPath("$.message", is("An unexpected internal error occurred. Please contact support.")))
                 .andExpect(jsonPath("$.path", is("/api/students/1")));
+    }
+
+    @Test
+    @DisplayName("Should return 400 Bad Request when PropertyReferenceException (invalid sort property) is thrown")
+    void testPropertyReferenceExceptionReturnsBadRequest() throws Exception {
+        when(studentService.getAllStudents(any(), any(), any(), any(Pageable.class)))
+                .thenThrow(new PropertyReferenceException("nonExistentProperty", TypeInformation.of(Student.class), List.of()));
+
+        mockMvc.perform(get("/api/students"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status", is(400)))
+                .andExpect(jsonPath("$.error", is("Bad Request")))
+                .andExpect(jsonPath("$.message", is("Invalid sort property 'nonExistentProperty'")))
+                .andExpect(jsonPath("$.path", is("/api/students")));
     }
 }

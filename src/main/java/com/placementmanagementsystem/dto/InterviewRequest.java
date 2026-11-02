@@ -29,6 +29,7 @@ public class InterviewRequest {
     @Size(max = 150, message = "Interviewer name cannot exceed 150 characters")
     private String interviewer;
     
+    @Size(max = 2000, message = "Feedback cannot exceed 2000 characters")
     private String feedback;
     
     private InterviewResult result;

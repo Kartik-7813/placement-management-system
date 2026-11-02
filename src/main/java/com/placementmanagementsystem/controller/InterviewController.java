@@ -24,8 +24,13 @@ import com.placementmanagementsystem.dto.InterviewResponse;
 import com.placementmanagementsystem.enums.InterviewResult;
 import com.placementmanagementsystem.service.InterviewService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
+@Tag(name = "Interviews", description = "Endpoints for scheduling, updating, and tracking interview rounds")
 @RestController
 @RequestMapping("/api/interviews")
 public class InterviewController {
@@ -41,6 +46,14 @@ public class InterviewController {
     // POST /api/interviews
     // =========================================================
 
+    @Operation(summary = "Schedule interview", description = "Schedule an interview round for an application. Requires ADMIN or owning COMPANY role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Interview scheduled successfully"),
+            @ApiResponse(responseCode = "400", description = "Validation failed for request fields"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot schedule for another company's application"),
+            @ApiResponse(responseCode = "404", description = "Application not found"),
+            @ApiResponse(responseCode = "409", description = "Interview round already scheduled")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @PostMapping
     public ResponseEntity<InterviewResponse> scheduleInterview(
@@ -57,6 +70,12 @@ public class InterviewController {
     // GET /api/interviews
     // =========================================================
 
+    @Operation(summary = "Get all interviews", description = "Retrieve paginated list of interviews with optional filters. Requires ADMIN or COMPANY role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Interviews retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid sort property or parameter mismatch"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN or COMPANY role")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @GetMapping
     public ResponseEntity<Page<InterviewResponse>> getAllInterviews(
@@ -83,6 +102,12 @@ public class InterviewController {
     // GET /api/interviews/{id}
     // =========================================================
 
+    @Operation(summary = "Get interview by ID", description = "Retrieve interview details by ID. Requires ADMIN, owning COMPANY, or applicant STUDENT role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Interview found"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot access another user's interview"),
+            @ApiResponse(responseCode = "404", description = "Interview not found")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/{id}")
     public ResponseEntity<InterviewResponse> getInterviewById(
@@ -99,6 +124,12 @@ public class InterviewController {
     // GET /api/interviews/application/{applicationId}
     // =========================================================
 
+    @Operation(summary = "Get interviews for application", description = "List all interview rounds for a specific application. Requires ADMIN, owning COMPANY, or applicant STUDENT role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Interviews retrieved successfully"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot access another user's interviews"),
+            @ApiResponse(responseCode = "404", description = "Application not found")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/application/{applicationId}")
     public ResponseEntity<List<InterviewResponse>> getInterviewsByApplication(
@@ -115,6 +146,14 @@ public class InterviewController {
     // PUT /api/interviews/{id}
     // =========================================================
 
+    @Operation(summary = "Update interview", description = "Update interview schedule, feedback, or result. Requires ADMIN or owning COMPANY role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Interview updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Validation failed for request fields"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot update another company's interview"),
+            @ApiResponse(responseCode = "404", description = "Interview not found"),
+            @ApiResponse(responseCode = "409", description = "Duplicate interview round number")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @PutMapping("/{id}")
     public ResponseEntity<InterviewResponse> updateInterview(
@@ -132,6 +171,12 @@ public class InterviewController {
     // DELETE /api/interviews/{id}
     // =========================================================
 
+    @Operation(summary = "Delete interview", description = "Delete an interview record. Requires ADMIN role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Interview deleted successfully"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role"),
+            @ApiResponse(responseCode = "404", description = "Interview not found")
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteInterview(

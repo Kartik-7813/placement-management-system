@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Collections;
 
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -142,5 +143,26 @@ class SecurityFilterChainTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status", is(401)))
                 .andExpect(jsonPath("$.error", is("Unauthorized")));
+    }
+
+    @Test
+    @DisplayName("Anonymous request to /v3/api-docs should be permitted without authentication")
+    void anonymousRequest_ToOpenApiDocs_ShouldBePermitted() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().is(not(401)));
+    }
+
+    @Test
+    @DisplayName("Anonymous request to /swagger-ui/index.html should be permitted without authentication")
+    void anonymousRequest_ToSwaggerUi_ShouldBePermitted() throws Exception {
+        mockMvc.perform(get("/swagger-ui/index.html"))
+                .andExpect(status().is(not(401)));
+    }
+
+    @Test
+    @DisplayName("Anonymous request to /swagger-ui.html should be permitted without authentication")
+    void anonymousRequest_ToSwaggerUiHtml_ShouldBePermitted() throws Exception {
+        mockMvc.perform(get("/swagger-ui.html"))
+                .andExpect(status().is(not(401)));
     }
 }

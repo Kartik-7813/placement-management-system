@@ -31,8 +31,8 @@ class DtoValidationTest {
     }
 
     @Test
-    @DisplayName("JobRequest should fail validation when deadline is in the past")
-    void testJobRequestPastDeadlineFails() {
+    @DisplayName("JobRequest should pass DTO validation when deadline is in the past so update workflow can evaluate it")
+    void testJobRequestPastDeadlinePassesDtoValidation() {
         JobRequest request = new JobRequest(
                 1L,
                 "Backend Engineer",
@@ -42,13 +42,12 @@ class DtoValidationTest {
                 new BigDecimal("7.50"),
                 new BigDecimal("1200000.00"),
                 "Full-Time",
-                LocalDate.now().minusDays(1), // Past deadline
+                LocalDate.now().minusDays(1), // Past deadline permitted at DTO layer
                 JobStatus.ACTIVE
         );
 
         Set<ConstraintViolation<JobRequest>> violations = validator.validate(request);
-        assertFalse(violations.isEmpty());
-        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("deadline")));
+        assertTrue(violations.isEmpty(), "Past deadline should pass DTO validation so JobService can permit unchanged expired updates");
     }
 
     @Test
@@ -151,5 +150,156 @@ class DtoValidationTest {
         Set<ConstraintViolation<SkillRequest>> violations = validator.validate(request);
         assertFalse(violations.isEmpty());
         assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("name")));
+    }
+
+    @Test
+    @DisplayName("PlacementRequest should fail validation when jobRole is blank")
+    void testPlacementRequestBlankJobRoleFails() {
+        PlacementRequest blankRoleRequest = new PlacementRequest(
+                1L,
+                1L,
+                "   ",
+                new BigDecimal("500000.00"),
+                LocalDate.now().plusMonths(1),
+                PlacementStatus.CONFIRMED
+        );
+
+        Set<ConstraintViolation<PlacementRequest>> violations = validator.validate(blankRoleRequest);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("jobRole")));
+    }
+
+    @Test
+    @DisplayName("JobRequest should fail validation when description, eligibilityCriteria or requiredSkills exceed limits")
+    void testJobRequestFieldLengthConstraints() {
+        // Test description > 5000
+        JobRequest longDescRequest = new JobRequest(
+                1L,
+                "Software Engineer",
+                "D".repeat(5001),
+                "Eligibility",
+                "Java",
+                new BigDecimal("7.00"),
+                new BigDecimal("800000.00"),
+                "Full-Time",
+                LocalDate.now().plusDays(10),
+                JobStatus.ACTIVE
+        );
+        Set<ConstraintViolation<JobRequest>> descViolations = validator.validate(longDescRequest);
+        assertFalse(descViolations.isEmpty());
+        assertTrue(descViolations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("description")));
+
+        // Test eligibilityCriteria > 5000
+        JobRequest longCritRequest = new JobRequest(
+                1L,
+                "Software Engineer",
+                "Description",
+                "E".repeat(5001),
+                "Java",
+                new BigDecimal("7.00"),
+                new BigDecimal("800000.00"),
+                "Full-Time",
+                LocalDate.now().plusDays(10),
+                JobStatus.ACTIVE
+        );
+        Set<ConstraintViolation<JobRequest>> critViolations = validator.validate(longCritRequest);
+        assertFalse(critViolations.isEmpty());
+        assertTrue(critViolations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("eligibilityCriteria")));
+
+        // Test requiredSkills > 1000
+        JobRequest longSkillsRequest = new JobRequest(
+                1L,
+                "Software Engineer",
+                "Description",
+                "Eligibility",
+                "S".repeat(1001),
+                new BigDecimal("7.00"),
+                new BigDecimal("800000.00"),
+                "Full-Time",
+                LocalDate.now().plusDays(10),
+                JobStatus.ACTIVE
+        );
+        Set<ConstraintViolation<JobRequest>> skillViolations = validator.validate(longSkillsRequest);
+        assertFalse(skillViolations.isEmpty());
+        assertTrue(skillViolations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("requiredSkills")));
+    }
+
+    @Test
+    @DisplayName("ApplicationRequest and ApplicationUpdateRequest should fail validation when remarks exceed 1000 characters")
+    void testApplicationRemarksLengthConstraints() {
+        String longRemarks = "R".repeat(1001);
+
+        ApplicationRequest req = new ApplicationRequest(1L, 2L, "https://example.com/resume.pdf", longRemarks);
+        Set<ConstraintViolation<ApplicationRequest>> reqViolations = validator.validate(req);
+        assertFalse(reqViolations.isEmpty());
+        assertTrue(reqViolations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("remarks")));
+
+        ApplicationUpdateRequest updateReq = new ApplicationUpdateRequest("https://example.com/resume.pdf", longRemarks);
+        Set<ConstraintViolation<ApplicationUpdateRequest>> updateViolations = validator.validate(updateReq);
+        assertFalse(updateViolations.isEmpty());
+        assertTrue(updateViolations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("remarks")));
+    }
+
+    @Test
+    @DisplayName("InterviewRequest should fail validation when feedback exceeds 2000 characters")
+    void testInterviewFeedbackLengthConstraint() {
+        InterviewRequest request = new InterviewRequest(
+                1L,
+                1,
+                "Technical",
+                LocalDateTime.now().plusDays(1),
+                "Interviewer Name",
+                "F".repeat(2001),
+                InterviewResult.PENDING
+        );
+
+        Set<ConstraintViolation<InterviewRequest>> violations = validator.validate(request);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("feedback")));
+    }
+
+    @Test
+    @DisplayName("Valid requests should pass validation across all updated DTOs")
+    void testValidRequestsPassValidation() {
+        JobRequest validJob = new JobRequest(
+                1L,
+                "Software Engineer",
+                "D".repeat(5000),
+                "E".repeat(5000),
+                "S".repeat(1000),
+                new BigDecimal("7.00"),
+                new BigDecimal("800000.00"),
+                "Full-Time",
+                LocalDate.now().plusDays(10),
+                JobStatus.ACTIVE
+        );
+        assertTrue(validator.validate(validJob).isEmpty());
+
+        PlacementRequest validPlacement = new PlacementRequest(
+                1L,
+                1L,
+                "Software Engineer",
+                new BigDecimal("600000.00"),
+                LocalDate.now().plusMonths(1),
+                PlacementStatus.CONFIRMED
+        );
+        assertTrue(validator.validate(validPlacement).isEmpty());
+
+        ApplicationRequest validApp = new ApplicationRequest(1L, 2L, "https://example.com/resume.pdf", "R".repeat(1000));
+        assertTrue(validator.validate(validApp).isEmpty());
+
+        ApplicationUpdateRequest validAppUpdate = new ApplicationUpdateRequest("https://example.com/resume.pdf", "R".repeat(1000));
+        assertTrue(validator.validate(validAppUpdate).isEmpty());
+
+        InterviewRequest validInterview = new InterviewRequest(
+                1L,
+                1,
+                "Technical",
+                LocalDateTime.now().plusDays(1),
+                "Interviewer Name",
+                "F".repeat(2000),
+                InterviewResult.PENDING
+        );
+        assertTrue(validator.validate(validInterview).isEmpty());
     }
 }

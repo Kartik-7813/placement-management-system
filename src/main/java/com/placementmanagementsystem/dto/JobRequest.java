@@ -4,7 +4,6 @@ import com.placementmanagementsystem.enums.JobStatus;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
-import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -22,8 +21,13 @@ public class JobRequest {
     @Size(max = 150, message = "Job title cannot exceed 150 characters")
     private String title;
 
+    @Size(max = 5000, message = "Description cannot exceed 5000 characters")
     private String description;
+
+    @Size(max = 5000, message = "Eligibility criteria cannot exceed 5000 characters")
     private String eligibilityCriteria;
+
+    @Size(max = 1000, message = "Required skills cannot exceed 1000 characters")
     private String requiredSkills;
 
     @DecimalMin(value = "0.00", message = "Minimum CGPA must be at least 0.0")
@@ -38,7 +42,6 @@ public class JobRequest {
     @Size(max = 50, message = "Job type cannot exceed 50 characters")
     private String jobType;
 
-    @FutureOrPresent(message = "Job deadline must be today or in the future")
     private LocalDate deadline;
 
     private JobStatus status;

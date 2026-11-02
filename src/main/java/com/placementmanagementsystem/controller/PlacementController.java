@@ -23,8 +23,13 @@ import com.placementmanagementsystem.dto.PlacementResponse;
 import com.placementmanagementsystem.enums.PlacementStatus;
 import com.placementmanagementsystem.service.PlacementService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
+@Tag(name = "Placements", description = "Endpoints for managing job placements, offers, and student placement records")
 @RestController
 @RequestMapping("/api/placements")
 public class PlacementController {
@@ -39,6 +44,14 @@ public class PlacementController {
     // CREATE PLACEMENT
     // =========================================================
 
+    @Operation(summary = "Create placement record", description = "Record a confirmed placement for a selected student application. Requires ADMIN role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Placement created successfully"),
+            @ApiResponse(responseCode = "400", description = "Application not selected or student mismatch"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role"),
+            @ApiResponse(responseCode = "404", description = "Student or application not found"),
+            @ApiResponse(responseCode = "409", description = "Placement already exists for application or student already placed")
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<PlacementResponse> createPlacement(
@@ -57,6 +70,12 @@ public class PlacementController {
     // GET ALL PLACEMENTS
     // =========================================================
 
+    @Operation(summary = "Get all placements", description = "Retrieve paginated list of placements with optional status filter. Requires ADMIN or COMPANY role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Placements retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid sort property or parameter mismatch"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN or COMPANY role")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY')")
     @GetMapping
     public ResponseEntity<Page<PlacementResponse>> getAllPlacements(
@@ -80,6 +99,12 @@ public class PlacementController {
     // GET PLACEMENT BY ID
     // =========================================================
 
+    @Operation(summary = "Get placement by ID", description = "Retrieve placement details by ID. Requires ADMIN, company owner, or placed STUDENT role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Placement found"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot access another user's placement"),
+            @ApiResponse(responseCode = "404", description = "Placement not found")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/{id}")
     public ResponseEntity<PlacementResponse> getPlacementById(
@@ -95,6 +120,12 @@ public class PlacementController {
     // GET PLACEMENT BY STUDENT
     // =========================================================
 
+    @Operation(summary = "Get placement by student ID", description = "Retrieve confirmed placement for a student. Requires ADMIN, COMPANY, or placed STUDENT role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Placement found"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot access another student's placement"),
+            @ApiResponse(responseCode = "404", description = "Placement or student not found")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/student/{studentId}")
     public ResponseEntity<PlacementResponse> getPlacementByStudent(
@@ -110,6 +141,12 @@ public class PlacementController {
     // GET PLACEMENT HISTORY BY STUDENT
     // =========================================================
 
+    @Operation(summary = "Get placement history for student", description = "Retrieve placement history for a student. Requires ADMIN, COMPANY, or placed STUDENT role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Placement history retrieved"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot access another student's history"),
+            @ApiResponse(responseCode = "404", description = "Student not found")
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'COMPANY', 'STUDENT')")
     @GetMapping("/student/{studentId}/history")
     public ResponseEntity<List<PlacementResponse>> getPlacementHistoryByStudent(
@@ -125,6 +162,13 @@ public class PlacementController {
     // UPDATE PLACEMENT DETAILS
     // =========================================================
 
+    @Operation(summary = "Update placement details", description = "Update role, package, or joining date of a placement. Requires ADMIN role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Placement updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Validation failed for request fields"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role"),
+            @ApiResponse(responseCode = "404", description = "Placement not found")
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<PlacementResponse> updatePlacement(
@@ -141,6 +185,12 @@ public class PlacementController {
     // UPDATE PLACEMENT STATUS
     // =========================================================
 
+    @Operation(summary = "Update placement status", description = "Update placement status (e.g. CONFIRMED, JOINED, WITHDRAWN). Requires ADMIN role.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Placement status updated successfully"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - requires ADMIN role"),
+            @ApiResponse(responseCode = "404", description = "Placement not found")
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}/status")
     public ResponseEntity<PlacementResponse> updatePlacementStatus(

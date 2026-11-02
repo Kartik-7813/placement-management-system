@@ -13,7 +13,9 @@ A robust, enterprise-grade RESTful backend application built with **Java 21**, *
 - [Database & Entity Relationship Model](#database--entity-relationship-model)
 - [Architectural Layers](#architectural-layers)
 - [Implemented Business Workflows & Validation Rules](#implemented-business-workflows--validation-rules)
+- [Interactive API Documentation (Swagger / OpenAPI)](#interactive-api-documentation-swagger--openapi)
 - [API Reference](#api-reference)
+- [Pagination & API Response Conventions](#pagination--api-response-conventions)
 - [Sample Request & Response Payloads](#sample-request--response-payloads)
 - [Error Handling & Status Codes](#error-handling--status-codes)
 - [Automated Testing & Verification](#automated-testing--verification)
@@ -343,6 +345,35 @@ When `POST /api/placements` is called:
 
 ---
 
+## Interactive API Documentation (Swagger / OpenAPI)
+
+The Placement Management System provides interactive API documentation via **Swagger UI** and the **OpenAPI 3.1** specification.
+
+| Resource | URL | Description |
+| :--- | :--- | :--- |
+| **Swagger UI** | `http://localhost:8080/swagger-ui/index.html` (or `/swagger-ui.html`) | Interactive web UI for exploring and executing API endpoints |
+| **OpenAPI JSON Contract** | `http://localhost:8080/v3/api-docs` | Raw OpenAPI 3 JSON specification |
+| **OpenAPI YAML Contract** | `http://localhost:8080/v3/api-docs.yaml` | Raw OpenAPI 3 YAML specification |
+
+### How to Authenticate & Test Protected Endpoints
+
+1. **Access Swagger UI:**
+   Open `http://localhost:8080/swagger-ui/index.html` in your browser.
+2. **Obtain a JWT Access Token:**
+   - Expand the **Authentication** tag and open `POST /api/auth/login`.
+   - Click **Try it out**.
+   - Enter registered user credentials (e.g., `{"email": "admin@example.com", "password": "yourPassword"}`).
+   - Click **Execute** and copy the `accessToken` value from the JSON response body.
+3. **Authorize in Swagger UI:**
+   - Click the green **Authorize** button (lock icon) at the top right of the Swagger UI page.
+   - In the **bearerAuth** modal, paste the token into the **Value** input field (do not prefix with `Bearer `).
+   - Click **Authorize**, then click **Close**.
+4. **Invoke Protected Endpoints:**
+   - Swagger UI automatically attaches `Authorization: Bearer <token>` to all subsequent requests.
+   - Test endpoints according to the authenticated user's role (`ROLE_ADMIN`, `ROLE_COMPANY`, or `ROLE_STUDENT`).
+
+---
+
 ## API Reference
 
 Base path for all endpoints: `/api`
@@ -410,6 +441,139 @@ Base path for all endpoints: `/api`
 | Method | Endpoint | Query Parameters | Request Body | Status Code | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/api/dashboard/summary` | None | None | `200 OK` | Retrieve aggregated placement cell metrics |
+
+---
+
+## Pagination & API Response Conventions
+
+All listing endpoints in the Placement Management System that support search and bulk retrieval adhere to standard Spring Data pagination and sorting conventions.
+
+### 1. Pagination Parameters
+
+| Query Parameter | Type | Default Value | Description |
+| :--- | :--- | :--- | :--- |
+| `page` | `Integer` | `0` | **Zero-based** page index. `page=0` is the first page. |
+| `size` | `Integer` | `10` | Number of items per page. Clamped between `1` and `2000` (max safety limit). |
+| `sort` | `String` | Endpoint specific | Property name and direction separated by comma (e.g. `sort=studentId,asc` or `sort=name,desc`). Multiple sort properties are supported. |
+
+### 2. Default Sorting by Endpoint
+
+Each paginated endpoint specifies an explicit `@PageableDefault` fallback sort:
+
+| Endpoint | Default Size | Default Sort Property & Direction |
+| :--- | :--- | :--- |
+| `GET /api/students` | `10` | `studentId,asc` |
+| `GET /api/companies` | `10` | `companyId,asc` |
+| `GET /api/jobs` | `10` | `jobId,asc` |
+| `GET /api/applications` | `10` | `applicationId,asc` |
+| `GET /api/interviews` | `10` | `interviewId,asc` |
+| `GET /api/placements` | `10` | `placementId,asc` |
+
+### 3. Combining Pagination with Filters
+
+Query filters and pagination work seamlessly together:
+- **Filter students by department and status, sorted by name**:
+  ```http
+  GET /api/students?department=Computer Science&status=ACTIVE&name=Jane&page=0&size=10&sort=name,asc
+  ```
+- **Filter jobs by company and minimum package, sorted by package descending**:
+  ```http
+  GET /api/jobs?companyId=1&status=ACTIVE&minCgpa=7.50&page=0&size=10&sort=packageAmount,desc
+  ```
+- **Filter applications by student and status**:
+  ```http
+  GET /api/applications?studentId=1&status=APPLIED&page=0&size=5&sort=appliedOn,desc
+  ```
+- **Filter interviews by application and outcome**:
+  ```http
+  GET /api/interviews?applicationId=1&result=PENDING&page=0&size=5&sort=scheduledOn,asc
+  ```
+- **Filter confirmed placements sorted by package**:
+  ```http
+  GET /api/placements?status=CONFIRMED&page=0&size=10&sort=packageAmount,desc
+  ```
+
+### 4. Input Boundary & Error Handling
+
+- **Negative page number** (`page=-1`): Spring Data safely clamps to page `0`.
+- **Zero or negative size** (`size=0` / `size=-5`): Spring Data safely falls back to the default page size (`10`).
+- **Excessively large size** (`size=999999`): Spring Data safely clamps to the upper bound (`2000`).
+- **Non-numeric page/size** (`page=abc`): Spring Data safely falls back to default page 0 without resulting in HTTP 500.
+- **Request beyond last page** (e.g., page 99 when only 1 exists): Returns HTTP 200 OK with `"content": []`, `"empty": true`, and correct total counts.
+- **Database Query Translation**: Spring Data JPA translates pageable sorting properties directly into SQL `ORDER BY` clauses. Note that sorting on unindexed database columns may increase query execution costs on large datasets.
+- **Invalid sort property** (e.g., `sort=nonExistentProperty`): Caught by `GlobalExceptionHandler` and translated to HTTP 400 Bad Request:
+  ```json
+  {
+    "timestamp": "2026-11-03T01:20:00",
+    "status": 400,
+    "error": "Bad Request",
+    "message": "Invalid sort property 'nonExistentProperty'",
+    "path": "/api/students"
+  }
+  ```
+
+> **Note on Page Serialization & Backward Compatibility**:
+> Spring Data Commons logs an informational warning when serializing `PageImpl` instances directly, noting that direct serialization structure is not guaranteed to remain stable across framework versions. The Placement Management System intentionally retains the established, root-level JSON format to preserve backward compatibility for API consumers, with a planned migration to a dedicated DTO-based `PagedModel` in a future iteration.
+
+### 5. Standard Paginated Response Structure
+
+Paginated endpoints return a structured Spring Data `Page` object:
+
+```json
+{
+  "content": [
+    {
+      "studentId": 1,
+      "rollNumber": "CS2026001",
+      "name": "Jane Doe",
+      "email": "jane.doe@example.com",
+      "department": "Computer Science",
+      "cgpa": 8.75,
+      "status": "ACTIVE"
+    }
+  ],
+  "pageable": {
+    "pageNumber": 0,
+    "pageSize": 10,
+    "sort": {
+      "empty": false,
+      "sorted": true,
+      "unsorted": false
+    },
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalElements": 1,
+  "totalPages": 1,
+  "last": true,
+  "size": 10,
+  "number": 0,
+  "sort": {
+    "empty": false,
+    "sorted": true,
+    "unsorted": false
+  },
+  "numberOfElements": 1,
+  "first": true,
+  "empty": false
+}
+```
+
+### 6. Non-Paginated API Response Conventions
+
+Endpoints that do not return paginated listings follow clear, consistent RESTful conventions:
+
+| Operation Type | HTTP Status | Response Format | Example Endpoints |
+| :--- | :--- | :--- | :--- |
+| **Single Resource Retrieval** | `200 OK` | Single Resource DTO | `GET /api/students/{id}`, `GET /api/jobs/{id}`, `GET /api/companies/{id}` |
+| **Resource Creation** | `201 Created` | Created Resource DTO | `POST /api/students`, `POST /api/jobs`, `POST /api/applications` |
+| **Resource Update** | `200 OK` | Updated Resource DTO | `PUT /api/students/{id}`, `PUT /api/jobs/{id}`, `PUT /api/applications/{id}/status` |
+| **Resource Deletion** | `204 No Content` | Empty response body | `DELETE /api/students/{id}`, `DELETE /api/jobs/{id}`, `DELETE /api/interviews/{id}` |
+| **Sub-Resource Associations** | `200 OK` / `204 No Content` | Associated entity or empty | `POST /api/students/{id}/skills/{skillId}` (200), `DELETE .../skills/{skillId}` (204) |
+| **Bounded List Endpoints** | `200 OK` | Direct JSON Array | `GET /api/students/{id}/skills` (Set), `GET /api/interviews/application/{id}` (List), `GET /api/placements/student/{id}/history` (List) |
+| **Metrics Summary** | `200 OK` | Aggregate DTO | `GET /api/dashboard/summary` |
+| **Client / Validation Error** | `400` / `401` / `403` / `404` / `409` | Standardized `ErrorResponse` | Structured error object with timestamp, status, path, message, and validationErrors |
 
 ---
 
@@ -646,8 +810,9 @@ All errors thrown during request execution are intercepted by `GlobalExceptionHa
 {
   "timestamp": "2026-10-27T16:54:20.912",
   "status": 400,
-  "error": "Validation Failed",
-  "messages": {
+  "error": "Bad Request",
+  "message": "Validation failed for one or more fields",
+  "validationErrors": {
     "email": "Email must be valid",
     "rollNumber": "Roll number is required",
     "cgpa": "CGPA cannot exceed 10.0"
@@ -661,28 +826,31 @@ All errors thrown during request execution are intercepted by `GlobalExceptionHa
 ## Automated Testing & Verification
 
 ### Test Suite Overview
-The repository includes automated Spring Boot integration testing validating application startup, configuration, and data source wiring:
+The repository features an enterprise-grade automated testing suite spanning unit, slice, and integration tests:
 
-- **Test Class**: `PlacementManagementSystemApplicationTests`
-- **Location**: `src/test/java/com/placementmanagementsystem/PlacementManagementSystemApplicationTests.java`
-- **Annotations**: `@SpringBootTest`
-- **Scope Verified**:
-  - Full Spring ApplicationContext bootstrap.
-  - Scanning and instantiation of all 7 Spring Data JPA repository interfaces (`StudentRepository`, `CompanyRepository`, `JobRepository`, `ApplicationRepository`, `InterviewRepository`, `PlacementRepository`, `SkillRepository`).
-  - Hibernate ORM 7.2.19 persistence unit processing and entity validation.
-  - HikariCP connection pool acquisition against MySQL.
+1. **Isolated Test Suite (250 tests)**:
+   - **Controller Slice Tests (`@WebMvcTest`)**: All 8 controllers verified with `MockMvc` for routing, status codes, input validation, service invocation, and response structures.
+   - **Pagination Verification Tests**: All 6 paginated endpoints verified with `ArgumentCaptor` for zero-based indexing, `@PageableDefault`, sorting directions, query filters, boundary clamping, and invalid sort handling.
+   - **Service Unit Tests**: Business rules, invariants, CGPA eligibility, deadlines, state machines, and ownership checks verified with Mockito.
+   - **Security & Authorization Tests**: Method security (`@PreAuthorize`), role hierarchy (`ROLE_ADMIN`, `ROLE_COMPANY`, `ROLE_STUDENT`), and student privacy verified.
+   - **OpenAPI / Swagger Contract Tests**: Verification of Swagger UI accessibility and security scheme mappings.
+   - **DTO & Exception Handling Tests**: Comprehensive Bean Validation and centralized `@RestControllerAdvice` error response mapping.
 
-### Verified Execution Results
-Executed via Maven Wrapper (`./mvnw test`):
-```text
-[INFO] Running com.placementmanagementsystem.PlacementManagementSystemApplicationTests
-...
-[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.080 s
-[INFO] Results:
-[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD SUCCESS
-[INFO] ------------------------------------------------------------------------
+2. **Database-Backed Integration Tests**:
+   - `PlacementManagementSystemApplicationTests`: Full Spring Boot context bootstrap, JPA repositories, and HikariCP connection pool acquisition against MySQL.
+   - `TransactionalRollbackIntegrationTest`: Multi-entity atomic transaction rollback verification.
+   - `ConcurrencyIntegrationTest`: High-concurrency race condition and deadlock protection verification.
+
+### Running Tests
+
+**Run the isolated test suite** (does not require a running MySQL database):
+```powershell
+.\mvnw.cmd test "-Dtest=!PlacementManagementSystemApplicationTests,!TransactionalRollbackIntegrationTest,!ConcurrencyIntegrationTest"
+```
+
+**Run all controller and pagination tests**:
+```powershell
+.\mvnw.cmd test "-Dtest=PaginationVerificationTest,*ControllerTest"
 ```
 
 ---
@@ -792,8 +960,9 @@ The application will start on **`http://localhost:8080`**.
 
 ## Security & Deployment Status
 
-- **Authentication & Authorization**: Currently **not implemented**. All REST endpoints are unauthenticated and openly accessible.
-- **Role-Based Access Control (RBAC)**: Not implemented; administrative and applicant actions share the same open endpoints.
+- **Authentication & Authorization**: Implemented using **Spring Security 7** with stateless JSON Web Tokens (**JJWT**).
+- **Role-Based Access Control (RBAC)**: Enforces three distinct roles (`ROLE_ADMIN`, `ROLE_COMPANY`, `ROLE_STUDENT`) via URL security matchers and method-level `@PreAuthorize` rules.
+- **Data Privacy & Ownership**: Student privacy checks prevent students from viewing other candidates' applications; company ownership checks restrict recruiters to modifying only their own drives and interviews.
 - **Deployment Status**: Not deployed to a public cloud provider. Operates as a local standalone Spring Boot application.
 - **Containerization**: A Dockerfile and `docker-compose.yml` are not present in the current release.
 
@@ -801,11 +970,10 @@ The application will start on **`http://localhost:8080`**.
 
 ## Known Limitations
 
-1. **Open Endpoints**: Absence of an identity provider or security middleware allows any client with network access to invoke CRUD operations.
-2. **Open-In-View Default**: `spring.jpa.open-in-view` is enabled by default in Spring Boot MVC, which issues a startup warning regarding database queries during view rendering.
-3. **Skill Entity Management**: Skills are linked and detached via `StudentController` (`/api/students/{id}/skills`), but a dedicated standalone `SkillController` for creating and cataloging skills via REST is not yet implemented.
-4. **Static File Handling**: Resume links are stored as plain string URLs (`resumeUrl`) without integrated multipart file storage or object-store uploads (e.g., AWS S3).
-5. **Automated Notification Triggers**: Interview scheduling and application status updates do not trigger automated email or SMS notifications to candidates.
+1. **Open-In-View Default**: `spring.jpa.open-in-view` is enabled by default in Spring Boot MVC, which issues a startup warning regarding database queries during view rendering.
+2. **Skill Entity Management**: Skills are linked and detached via `StudentController` (`/api/students/{id}/skills`), but a dedicated standalone `SkillController` for cataloging skills via REST is not yet implemented.
+3. **Static File Handling**: Resume links are stored as plain string URLs (`resumeUrl`) without integrated multipart file storage or object-store uploads (e.g., AWS S3).
+4. **Automated Notification Triggers**: Interview scheduling and application status updates do not trigger automated email or SMS notifications to candidates.
 
 ---
 
@@ -813,11 +981,11 @@ The application will start on **`http://localhost:8080`**.
 
 The following improvements are planned for upcoming iterations:
 
-- [ ] **Spring Security & JWT**: Add stateless authentication with JSON Web Tokens and role-based permissions (`ROLE_STUDENT`, `ROLE_RECRUITER`, `ROLE_PLACEMENT_OFFICER`).
-- [ ] **Interactive API Documentation**: Integrate `springdoc-openapi` (Swagger UI) for interactive API exploration and schema export.
+- [x] **Spring Security & JWT**: Stateless authentication with JSON Web Tokens and role-based permissions (`ROLE_ADMIN`, `ROLE_COMPANY`, `ROLE_STUDENT`). *(Completed in Phase 4)*
+- [x] **Interactive API Documentation**: Swagger UI and OpenAPI 3.1 contract integration via `springdoc-openapi`. *(Completed in Phase 6)*
+- [x] **Unit & MockMvc Test Suite**: 250 automated tests including comprehensive Mockito service tests, MockMvc controller slice tests, and pagination tests. *(Completed in Phase 6)*
 - [ ] **Cloud Storage Integration**: Implement multi-part file upload support backed by AWS S3 or MinIO for candidate resumes and job offer letters.
 - [ ] **Automated Email Notifications**: Integrate Spring Mail with Thymeleaf templates to dispatch interview invitations and status changes.
-- [ ] **Unit & MockMvc Test Suite**: Add comprehensive service-layer unit tests using Mockito and controller integration tests using `@WebMvcTest` and `MockMvc`.
 - [ ] **Containerization & CI/CD**: Add a multi-stage `Dockerfile`, `docker-compose.yml` (wiring MySQL and the Spring Boot service), and GitHub Actions build pipelines.
 
 ---
