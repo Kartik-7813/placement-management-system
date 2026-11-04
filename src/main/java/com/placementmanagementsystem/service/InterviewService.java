@@ -5,12 +5,15 @@ import com.placementmanagementsystem.dto.InterviewResponse;
 import com.placementmanagementsystem.entity.Application;
 import com.placementmanagementsystem.entity.Interview;
 import com.placementmanagementsystem.enums.ApplicationStatus;
+import com.placementmanagementsystem.enums.AuditAction;
 import com.placementmanagementsystem.enums.InterviewResult;
 import com.placementmanagementsystem.exception.ApplicationNotFoundException;
 import com.placementmanagementsystem.exception.InterviewAlreadyExistsException;
 import com.placementmanagementsystem.exception.InterviewNotFoundException;
 import com.placementmanagementsystem.repository.ApplicationRepository;
 import com.placementmanagementsystem.repository.InterviewRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,18 +26,23 @@ import java.util.List;
 @Transactional
 public class InterviewService {
 
+    private static final Logger log = LoggerFactory.getLogger(InterviewService.class);
+
     private final InterviewRepository interviewRepository;
     private final ApplicationRepository applicationRepository;
     private final com.placementmanagementsystem.security.SecurityHelper securityHelper;
+    private final AuditService auditService;
 
     public InterviewService(
             InterviewRepository interviewRepository,
             ApplicationRepository applicationRepository,
-            com.placementmanagementsystem.security.SecurityHelper securityHelper) {
+            com.placementmanagementsystem.security.SecurityHelper securityHelper,
+            AuditService auditService) {
 
         this.interviewRepository = interviewRepository;
         this.applicationRepository = applicationRepository;
         this.securityHelper = securityHelper;
+        this.auditService = auditService;
     }
 
     // =========================================================
@@ -97,6 +105,14 @@ public class InterviewService {
         }
 
         Interview savedInterview = interviewRepository.save(interview);
+        auditService.recordAudit(
+                AuditAction.INTERVIEW_SCHEDULED,
+                "INTERVIEW",
+                savedInterview.getInterviewId(),
+                "Interview scheduled for round " + savedInterview.getRoundNumber()
+        );
+        log.info("Interview scheduled with id: {} for application id: {}, round: {}",
+                savedInterview.getInterviewId(), request.getApplicationId(), request.getRoundNumber());
 
         return toResponse(savedInterview);
     }
@@ -217,6 +233,13 @@ public class InterviewService {
 
         Interview updatedInterview =
                 interviewRepository.save(existingInterview);
+        auditService.recordAudit(
+                AuditAction.INTERVIEW_UPDATED,
+                "INTERVIEW",
+                updatedInterview.getInterviewId(),
+                "Interview updated with result: " + updatedInterview.getResult()
+        );
+        log.info("Interview updated with id: {}, result: {}", updatedInterview.getInterviewId(), updatedInterview.getResult());
 
         return toResponse(updatedInterview);
     }
@@ -232,6 +255,7 @@ public class InterviewService {
                         "Interview not found with id: " + id));
 
         interviewRepository.delete(interview);
+        log.info("Interview deleted with id: {}", id);
     }
 
     // =========================================================

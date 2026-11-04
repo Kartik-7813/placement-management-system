@@ -3,6 +3,8 @@ package com.placementmanagementsystem.service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import com.placementmanagementsystem.entity.Application;
 import com.placementmanagementsystem.entity.Job;
 import com.placementmanagementsystem.entity.Student;
 import com.placementmanagementsystem.enums.ApplicationStatus;
+import com.placementmanagementsystem.enums.AuditAction;
 import com.placementmanagementsystem.enums.CompanyStatus;
 import com.placementmanagementsystem.enums.JobStatus;
 import com.placementmanagementsystem.enums.StudentStatus;
@@ -35,19 +38,24 @@ import com.placementmanagementsystem.repository.StudentRepository;
 @Transactional
 public class ApplicationService {
 
+    private static final Logger log = LoggerFactory.getLogger(ApplicationService.class);
+
     private final ApplicationRepository applicationRepository;
     private final StudentRepository studentRepository;
     private final JobRepository jobRepository;
     private final com.placementmanagementsystem.security.SecurityHelper securityHelper;
+    private final AuditService auditService;
 
     public ApplicationService(ApplicationRepository applicationRepository,
                               StudentRepository studentRepository,
                               JobRepository jobRepository,
-                              com.placementmanagementsystem.security.SecurityHelper securityHelper) {
+                              com.placementmanagementsystem.security.SecurityHelper securityHelper,
+                              AuditService auditService) {
         this.applicationRepository = applicationRepository;
         this.studentRepository = studentRepository;
         this.jobRepository = jobRepository;
         this.securityHelper = securityHelper;
+        this.auditService = auditService;
     }
 
     // ========== CREATE APPLICATION ==========
@@ -127,6 +135,15 @@ public class ApplicationService {
 
         // 9. Save
         Application savedApplication = applicationRepository.save(application);
+        log.info("Application submitted with id: {} for student id: {} and job id: {}",
+                savedApplication.getApplicationId(), request.getStudentId(), request.getJobId());
+
+        auditService.recordAudit(
+                AuditAction.APPLICATION_SUBMITTED,
+                "APPLICATION",
+                savedApplication.getApplicationId(),
+                "Job application submitted"
+        );
 
         // 10. Convert to response
         return toResponse(savedApplication);
@@ -186,6 +203,7 @@ public class ApplicationService {
         existingApplication.setRemarks(request.getRemarks());
 
         Application updatedApplication = applicationRepository.save(existingApplication);
+        log.info("Application updated with id: {}", updatedApplication.getApplicationId());
         return toResponse(updatedApplication);
     }
 
@@ -207,8 +225,18 @@ public class ApplicationService {
 
         validateStatusTransition(application.getStatus(), newStatus);
 
+        ApplicationStatus previousStatus = application.getStatus();
         application.setStatus(newStatus);
         Application updatedApplication = applicationRepository.save(application);
+        log.info("Application id: {} status transitioned from {} to {}", id, previousStatus, newStatus);
+
+        auditService.recordAudit(
+                AuditAction.APPLICATION_STATUS_UPDATED,
+                "APPLICATION",
+                updatedApplication.getApplicationId(),
+                "Application status transitioned from " + previousStatus + " to " + newStatus
+        );
+
         return toResponse(updatedApplication);
     }
 

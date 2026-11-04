@@ -5,6 +5,10 @@ import com.placementmanagementsystem.security.JwtAccessDeniedHandler;
 import com.placementmanagementsystem.security.JwtAuthenticationEntryPoint;
 import com.placementmanagementsystem.security.JwtAuthenticationFilter;
 import com.placementmanagementsystem.security.JwtService;
+import com.placementmanagementsystem.security.ratelimit.RateLimitingFilter;
+import com.placementmanagementsystem.security.ratelimit.RateLimitingService;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -14,6 +18,14 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import tools.jackson.databind.ObjectMapper;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Spring Security configuration defining the filter chain, access rules,
@@ -49,11 +61,42 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${application.cors.allowed-origins:http://localhost:3000,http://localhost:5173}") String allowedOrigins
+    ) {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .collect(Collectors.toList());
+
+        configuration.setAllowedOrigins(origins);
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
+        configuration.setExposedHeaders(List.of("Retry-After"));
+        configuration.setAllowCredentials(false);
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            CorsConfigurationSource corsConfigurationSource,
+            ObjectProvider<RateLimitingService> rateLimitingServiceProvider,
+            ObjectProvider<ObjectMapper> objectMapperProvider
+    ) throws Exception {
         JwtAuthenticationFilter jwtAuthenticationFilter =
                 new JwtAuthenticationFilter(jwtService, userDetailsService);
 
         http
+                // Enable Cross-Origin Resource Sharing (CORS) with our configured CorsConfigurationSource
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
+
                 // Disable CSRF: Not needed because our REST APIs are stateless and rely on Bearer tokens
                 // stored in HTTP Authorization headers, which browsers never send automatically with cross-site requests.
                 .csrf(csrf -> csrf.disable())
@@ -79,6 +122,13 @@ public class SecurityConfig {
                                 "/swagger-ui.html"
                         ).permitAll()
 
+                        // Actuator health check and probe endpoints
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/health/liveness",
+                                "/actuator/health/readiness"
+                        ).permitAll()
+
                         // Error dispatch
                         .requestMatchers("/error").permitAll()
 
@@ -92,6 +142,13 @@ public class SecurityConfig {
 
                 // Register JWT authentication filter before standard UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        RateLimitingService rateLimitingService = rateLimitingServiceProvider.getIfAvailable();
+        if (rateLimitingService != null) {
+            ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
+            RateLimitingFilter rateLimitingFilter = new RateLimitingFilter(rateLimitingService, objectMapper);
+            http.addFilterBefore(rateLimitingFilter, JwtAuthenticationFilter.class);
+        }
 
         return http.build();
     }

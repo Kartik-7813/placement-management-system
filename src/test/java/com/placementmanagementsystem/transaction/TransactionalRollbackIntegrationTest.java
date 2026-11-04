@@ -9,11 +9,13 @@ import com.placementmanagementsystem.entity.Job;
 import com.placementmanagementsystem.entity.Student;
 import com.placementmanagementsystem.entity.User;
 import com.placementmanagementsystem.enums.ApplicationStatus;
+import com.placementmanagementsystem.enums.AuditAction;
 import com.placementmanagementsystem.enums.CompanyStatus;
 import com.placementmanagementsystem.enums.InterviewResult;
 import com.placementmanagementsystem.enums.JobStatus;
 import com.placementmanagementsystem.enums.StudentStatus;
 import com.placementmanagementsystem.repository.ApplicationRepository;
+import com.placementmanagementsystem.repository.AuditLogRepository;
 import com.placementmanagementsystem.repository.CompanyRepository;
 import com.placementmanagementsystem.repository.InterviewRepository;
 import com.placementmanagementsystem.repository.JobRepository;
@@ -78,6 +80,9 @@ public class TransactionalRollbackIntegrationTest {
 
     @Autowired
     private CompanyRepository companyRepository;
+
+    @Autowired
+    private AuditLogRepository auditLogRepository;
 
     private Long createdCompanyId;
     private Long createdJobId;
@@ -150,6 +155,8 @@ public class TransactionalRollbackIntegrationTest {
 
         assertTrue(persistedUser.isEmpty(), "Persisted database state must NOT contain the User row after rollback");
         assertTrue(persistedStudent.isEmpty(), "Persisted database state must NOT contain the Student row after rollback");
+        assertTrue(auditLogRepository.findAll().stream().noneMatch(a -> a.getAction() == AuditAction.STUDENT_REGISTERED && "Student self-registration completed".equals(a.getDescription())),
+                "Audit log must roll back when business operation fails");
     }
 
     @Test
@@ -220,5 +227,7 @@ public class TransactionalRollbackIntegrationTest {
 
         var interviews = interviewRepository.findByApplication_ApplicationId(createdApplicationId);
         assertTrue(interviews.isEmpty(), "No Interview row should exist in database for this application after rollback");
+        assertTrue(auditLogRepository.findAll().stream().noneMatch(a -> a.getAction() == AuditAction.INTERVIEW_SCHEDULED && a.getEntityId().equals(createdApplicationId)),
+                "Interview audit log must roll back when interview persistence fails");
     }
 }

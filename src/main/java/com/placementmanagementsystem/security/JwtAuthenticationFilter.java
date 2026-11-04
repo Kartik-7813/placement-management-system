@@ -5,6 +5,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,6 +24,8 @@ import java.io.IOException;
  * Will be registered directly in the SecurityFilterChain in Step 4.
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
@@ -80,6 +84,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // For expired, malformed, tampered tokens, or non-existent users:
             // Ensure any partial authentication is cleared, never log sensitive tokens/exceptions,
             // and allow the filter chain to continue so Spring Security handles authorization appropriately.
+            log.debug("JWT authentication filter: failed token validation at path [{}]", request.getRequestURI());
             SecurityContextHolder.clearContext();
         }
 

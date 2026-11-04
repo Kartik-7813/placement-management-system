@@ -4,6 +4,7 @@ import com.placementmanagementsystem.dto.JobRequest;
 import com.placementmanagementsystem.dto.JobResponse;
 import com.placementmanagementsystem.entity.Company;
 import com.placementmanagementsystem.entity.Job;
+import com.placementmanagementsystem.enums.AuditAction;
 import com.placementmanagementsystem.enums.CompanyStatus;
 import com.placementmanagementsystem.enums.JobStatus;
 import com.placementmanagementsystem.exception.CompanyNotFoundException;
@@ -12,6 +13,8 @@ import com.placementmanagementsystem.exception.JobNotFoundException;
 import com.placementmanagementsystem.repository.CompanyRepository;
 import com.placementmanagementsystem.repository.JobRepository;
 import com.placementmanagementsystem.security.SecurityHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -25,16 +28,21 @@ import java.time.LocalDate;
 @Transactional
 public class JobService {
 
+    private static final Logger log = LoggerFactory.getLogger(JobService.class);
+
     private final JobRepository jobRepository;
     private final CompanyRepository companyRepository;
     private final SecurityHelper securityHelper;
+    private final AuditService auditService;
 
     public JobService(JobRepository jobRepository,
                       CompanyRepository companyRepository,
-                      SecurityHelper securityHelper) {
+                      SecurityHelper securityHelper,
+                      AuditService auditService) {
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
         this.securityHelper = securityHelper;
+        this.auditService = auditService;
     }
 
     public JobResponse createJob(JobRequest request) {
@@ -70,6 +78,8 @@ public class JobService {
         }
 
         Job savedJob = jobRepository.save(job);
+        log.info("Job created with id: {} for company id: {}", savedJob.getJobId(), company.getCompanyId());
+        auditService.recordAudit(AuditAction.JOB_CREATED, "JOB", savedJob.getJobId(), "Campus recruitment job created");
         return toResponse(savedJob);
     }
 
@@ -134,6 +144,8 @@ public class JobService {
         }
 
         Job updatedJob = jobRepository.save(existingJob);
+        log.info("Job updated with id: {}", updatedJob.getJobId());
+        auditService.recordAudit(AuditAction.JOB_UPDATED, "JOB", updatedJob.getJobId(), "Job posting details updated");
         return toResponse(updatedJob);
     }
 
@@ -146,6 +158,8 @@ public class JobService {
 
         existingJob.setStatus(JobStatus.CLOSED);
         jobRepository.save(existingJob);
+        log.info("Job closed with id: {}", id);
+        auditService.recordAudit(AuditAction.JOB_CLOSED, "JOB", existingJob.getJobId(), "Job posting closed for applications");
     }
 
     private JobResponse toResponse(Job job) {

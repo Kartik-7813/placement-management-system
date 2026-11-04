@@ -11,6 +11,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 /**
  * Helper component for extracting authenticated user details from the SecurityContext
  * and performing student and company ownership verification across read and write boundaries.
@@ -44,6 +46,18 @@ public class SecurityHelper {
         String email = getCurrentUserEmail();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new AccessDeniedException("Authenticated user account not found"));
+    }
+
+    /**
+     * Safely retrieves the authenticated User's internal ID,
+     * or Optional.empty() if unauthenticated or anonymous.
+     */
+    public Optional<Long> getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getName())) {
+            return Optional.empty();
+        }
+        return userRepository.findByEmail(auth.getName()).map(User::getUserId);
     }
 
     /**

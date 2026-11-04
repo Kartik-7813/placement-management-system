@@ -45,6 +45,8 @@ public class GlobalExceptionHandler {
             RuntimeException exception,
             HttpServletRequest request) {
 
+        log.debug("Resource not found at path [{}]", request.getRequestURI());
+
         return buildErrorResponse(
                 HttpStatus.NOT_FOUND,
                 exception.getMessage(),
@@ -64,6 +66,8 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request) {
 
+        log.warn("Authentication failure at path [{}]", request.getRequestURI());
+
         return buildErrorResponse(
                 HttpStatus.UNAUTHORIZED,
                 "Invalid email or password",
@@ -79,6 +83,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAccessDenied(
             org.springframework.security.access.AccessDeniedException exception,
             HttpServletRequest request) {
+
+        log.warn("Access denied at path [{}]", request.getRequestURI());
 
         return buildErrorResponse(
                 HttpStatus.FORBIDDEN,
@@ -101,6 +107,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleConflict(
             RuntimeException exception,
             HttpServletRequest request) {
+
+        log.warn("Conflict occurred at path [{}]", request.getRequestURI());
 
         return buildErrorResponse(
                 HttpStatus.CONFLICT,
@@ -127,6 +135,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBadRequest(
             RuntimeException exception,
             HttpServletRequest request) {
+
+        log.debug("Bad request at path [{}]", request.getRequestURI());
 
         return buildErrorResponse(
                 HttpStatus.BAD_REQUEST,
@@ -155,6 +165,8 @@ public class GlobalExceptionHandler {
                         )
                 );
 
+        log.debug("Validation failed at path [{}]: {} errors", request.getRequestURI(), validationErrors.size());
+
         ErrorResponse errorResponse = new ErrorResponse(
                 LocalDateTime.now(),
                 HttpStatus.BAD_REQUEST.value(),
@@ -178,7 +190,7 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException exception,
             HttpServletRequest request) {
 
-        log.debug("Malformed JSON or unreadable request body at path [{}]: {}", request.getRequestURI(), exception.getMessage());
+        log.debug("Malformed JSON or unreadable request body at path [{}]", request.getRequestURI());
 
         return buildErrorResponse(
                 HttpStatus.BAD_REQUEST,
@@ -202,6 +214,7 @@ public class GlobalExceptionHandler {
                 : "valid type";
 
         String message = String.format("Parameter '%s' should be of type %s", paramName, expectedType);
+        log.debug("Parameter type mismatch at path [{}]: {}", request.getRequestURI(), message);
 
         return buildErrorResponse(
                 HttpStatus.BAD_REQUEST,
@@ -220,6 +233,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String message = String.format("Required request parameter '%s' is missing", exception.getParameterName());
+        log.debug("Missing parameter at path [{}]: {}", request.getRequestURI(), message);
 
         return buildErrorResponse(
                 HttpStatus.BAD_REQUEST,
@@ -237,7 +251,7 @@ public class GlobalExceptionHandler {
             PropertyReferenceException exception,
             HttpServletRequest request) {
 
-        log.debug("Invalid sort property at path [{}]: {}", request.getRequestURI(), exception.getMessage());
+        log.debug("Invalid sort property '{}' at path [{}]", exception.getPropertyName(), request.getRequestURI());
 
         String message = String.format("Invalid sort property '%s'", exception.getPropertyName());
 
@@ -257,7 +271,7 @@ public class GlobalExceptionHandler {
             DataIntegrityViolationException exception,
             HttpServletRequest request) {
 
-        log.warn("Database integrity violation at path [{}]: {}", request.getRequestURI(), exception.getMessage());
+        log.warn("Database integrity violation at path [{}]", request.getRequestURI());
 
         return buildErrorResponse(
                 HttpStatus.CONFLICT,
@@ -278,8 +292,8 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request) {
 
-        log.warn("Database concurrency conflict or lock acquisition failure at path [{}]: {}",
-                request.getRequestURI(), exception.getMessage());
+        log.warn("Database concurrency conflict or lock acquisition failure at path [{}]", request.getRequestURI());
+
 
         return buildErrorResponse(
                 HttpStatus.CONFLICT,

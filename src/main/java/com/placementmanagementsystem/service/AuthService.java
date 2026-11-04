@@ -5,6 +5,7 @@ import com.placementmanagementsystem.dto.LoginRequest;
 import com.placementmanagementsystem.dto.RegisterRequest;
 import com.placementmanagementsystem.entity.Student;
 import com.placementmanagementsystem.entity.User;
+import com.placementmanagementsystem.enums.AuditAction;
 import com.placementmanagementsystem.enums.Role;
 import com.placementmanagementsystem.enums.StudentStatus;
 import com.placementmanagementsystem.exception.DuplicateStudentException;
@@ -12,6 +13,8 @@ import com.placementmanagementsystem.repository.StudentRepository;
 import com.placementmanagementsystem.repository.UserRepository;
 import com.placementmanagementsystem.security.CustomUserDetailsService;
 import com.placementmanagementsystem.security.JwtService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -25,12 +28,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
     private final UserRepository userRepository;
     private final StudentRepository studentRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
+    private final AuditService auditService;
 
     public AuthService(
             UserRepository userRepository,
@@ -38,7 +44,8 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             AuthenticationManager authenticationManager,
-            CustomUserDetailsService userDetailsService
+            CustomUserDetailsService userDetailsService,
+            AuditService auditService
     ) {
         this.userRepository = userRepository;
         this.studentRepository = studentRepository;
@@ -46,6 +53,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
         this.userDetailsService = userDetailsService;
+        this.auditService = auditService;
     }
 
     /**
@@ -93,6 +101,17 @@ public class AuthService {
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String token = jwtService.generateToken(userDetails);
 
+        log.info("Student registered successfully");
+
+        // 4. Record business audit trail event
+        auditService.recordAudit(
+                user.getUserId(),
+                AuditAction.STUDENT_REGISTERED,
+                "STUDENT",
+                student.getStudentId(),
+                "Student self-registration completed"
+        );
+
         return new AuthResponse(
                 token,
                 user.getEmail(),
@@ -111,6 +130,7 @@ public class AuthService {
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
             );
         } catch (AuthenticationException ex) {
+            log.warn("Authentication failed for login attempt");
             // Throw generic BadCredentialsException so clients cannot distinguish between missing email vs incorrect password
             throw new BadCredentialsException("Invalid email or password");
         }
@@ -122,6 +142,8 @@ public class AuthService {
                 .findFirst()
                 .map(grantedAuthority -> grantedAuthority.getAuthority())
                 .orElse(Role.ROLE_STUDENT.name());
+
+        log.info("User logged in successfully");
 
         return new AuthResponse(
                 token,

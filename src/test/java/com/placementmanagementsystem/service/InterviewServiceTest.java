@@ -41,6 +41,9 @@ class InterviewServiceTest {
     @Mock
     private com.placementmanagementsystem.security.SecurityHelper securityHelper;
 
+    @Mock
+    private AuditService auditService;
+
     @InjectMocks
     private InterviewService interviewService;
 

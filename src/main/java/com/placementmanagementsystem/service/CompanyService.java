@@ -10,6 +10,8 @@ import com.placementmanagementsystem.exception.CompanyNotFoundException;
 import com.placementmanagementsystem.repository.CompanyRepository;
 import com.placementmanagementsystem.repository.JobRepository;
 import com.placementmanagementsystem.security.SecurityHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,8 @@ import java.util.List;
 @Service
 @Transactional
 public class CompanyService {
+
+    private static final Logger log = LoggerFactory.getLogger(CompanyService.class);
 
     private final CompanyRepository companyRepository;
     private final JobRepository jobRepository;
@@ -40,6 +44,7 @@ public class CompanyService {
         }
 
         Company savedCompany = companyRepository.save(company);
+        log.info("Company created with id: {}", savedCompany.getCompanyId());
         return toResponse(savedCompany);
     }
 
@@ -76,6 +81,7 @@ public class CompanyService {
         }
 
         Company updatedCompany = companyRepository.save(existingCompany);
+        log.info("Company updated with id: {}", updatedCompany.getCompanyId());
         return toResponse(updatedCompany);
     }
 
@@ -92,6 +98,7 @@ public class CompanyService {
             job.setStatus(JobStatus.CLOSED);
         }
         jobRepository.saveAll(activeJobs);
+        log.info("Company deactivated with id: {}, closed {} active jobs", id, activeJobs.size());
     }
 
     private CompanyResponse toResponse(Company company) {

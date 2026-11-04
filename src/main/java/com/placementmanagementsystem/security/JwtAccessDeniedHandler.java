@@ -3,6 +3,8 @@ package com.placementmanagementsystem.security;
 import com.placementmanagementsystem.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -20,6 +22,8 @@ import java.time.LocalDateTime;
 @Component
 public class JwtAccessDeniedHandler implements AccessDeniedHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtAccessDeniedHandler.class);
+
     private final ObjectMapper objectMapper;
 
     public JwtAccessDeniedHandler(ObjectMapper objectMapper) {
@@ -32,6 +36,8 @@ public class JwtAccessDeniedHandler implements AccessDeniedHandler {
             HttpServletResponse response,
             AccessDeniedException accessDeniedException
     ) throws IOException {
+
+        log.warn("Access denied for path [{}]", request.getRequestURI());
 
         HttpStatus status = HttpStatus.FORBIDDEN;
         ErrorResponse errorResponse = new ErrorResponse(

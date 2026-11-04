@@ -20,6 +20,10 @@ A robust, enterprise-grade RESTful backend application built with **Java 21**, *
 - [Error Handling & Status Codes](#error-handling--status-codes)
 - [Automated Testing & Verification](#automated-testing--verification)
 - [Local Setup & Configuration Guide](#local-setup--configuration-guide)
+- [Production Profile & Cloud Deployment Hardening](#production-profile--cloud-deployment-hardening)
+- [Application Health & Monitoring (Spring Boot Actuator)](#application-health--monitoring-spring-boot-actuator)
+- [Business Audit Trail](#business-audit-trail)
+- [API Rate Limiting](#api-rate-limiting)
 - [Security & Deployment Status](#security--deployment-status)
 - [Known Limitations](#known-limitations)
 - [Future Enhancements (Planned)](#future-enhancements-planned)
@@ -955,6 +959,208 @@ java -jar target/placement-management-system-0.0.1-SNAPSHOT.jar
 ```
 
 The application will start on **`http://localhost:8080`**.
+
+---
+
+## Production Profile & Cloud Deployment Hardening
+
+The Placement Management System features a dedicated **production configuration profile (`prod`)** defined within `application.properties` using Spring Boot multi-document configuration (`#---` and `spring.config.activate.on-profile=prod`).
+
+### Activating the Production Profile
+
+Activate the `prod` profile using either the JVM system property or the standard environment variable:
+
+**Using JVM Argument**:
+```bash
+java -Dspring.profiles.active=prod -jar target/placement-management-system-0.0.1-SNAPSHOT.jar
+```
+
+**Using Environment Variable**:
+```bash
+# Linux / macOS
+export SPRING_PROFILES_ACTIVE=prod
+
+# Windows (PowerShell)
+$env:SPRING_PROFILES_ACTIVE="prod"
+```
+
+### Required Production Environment Variables
+
+When running under the `prod` profile, all insecure defaults and development fallbacks are removed. The application enforces fail-fast startup if any mandatory variable is missing:
+
+| Environment Variable | Mandatory? | Description / Format | Example Placeholder |
+| :--- | :--- | :--- | :--- |
+| `SPRING_DATASOURCE_URL` | Yes | JDBC URL to MySQL (e.g. AWS RDS) | `jdbc:mysql://<rds-host>:3306/placement_management_system` |
+| `SPRING_DATASOURCE_USERNAME` | Yes | Database username | `<db-username>` |
+| `SPRING_DATASOURCE_PASSWORD` | **Yes** | Database password (no fallback permitted) | `<set-your-secret-securely>` |
+| `JWT_SECRET` | **Yes** | Base64-encoded HMAC key (min 256 bits / 32 bytes) | `<base64-encoded-256bit-secret>` |
+| `CORS_ALLOWED_ORIGINS` | **Yes** | Comma-separated list of allowed web frontend origins | `https://pms.example.com,https://admin.pms.example.com` |
+| `SWAGGER_ENABLED` | Optional | Controls Swagger UI in production (defaults to `false`) | `false` |
+| `API_DOCS_ENABLED` | Optional | Controls OpenAPI JSON in production (defaults to `false`) | `false` |
+| `DB_POOL_MAX_SIZE` | Optional | HikariCP maximum connection pool size (defaults to `10`) | `10` |
+| `DB_POOL_MIN_IDLE` | Optional | HikariCP minimum idle connection count (defaults to `5`) | `5` |
+| `SPRING_JPA_SHOW_SQL` | Optional | SQL console logging (strictly `false` in production) | `false` |
+
+> [!CAUTION]
+> **No Hardcoded Secrets**: Never commit real database passwords, AWS credentials, or JWT signing keys to source control, configuration files, or logs. Always inject secrets at runtime via container environment variables or AWS Secrets Manager.
+
+### Frontend CORS Origin Configuration
+
+In production, CORS does not permit unauthenticated origin fallbacks (e.g. `localhost`). Set `CORS_ALLOWED_ORIGINS` to the exact protocol and domain of the client application(s):
+
+```bash
+export CORS_ALLOWED_ORIGINS="https://placement.university.edu,https://recruiter.university.edu"
+```
+
+### Controlled Swagger / OpenAPI Exposure in Production
+
+By default, Swagger UI (`/swagger-ui.html`) and OpenAPI JSON (`/v3/api-docs`) are **disabled** in the `prod` profile to prevent reconnaissance of internal endpoints and schemas.
+
+If API documentation is required in a private staging or restricted internal environment, set:
+```bash
+export SWAGGER_ENABLED=true
+export API_DOCS_ENABLED=true
+```
+
+### Database Schema Safety: Why Production Uses `ddl-auto=validate`
+
+In local development, Hibernate uses `ddl-auto=update` to automatically create and synchronize tables with JPA entity definitions.
+
+In production, `ddl-auto` is strictly locked to **`validate`**:
+- **Prevents Accidental Schema Mutation**: Prevents application nodes from running implicit DDL modifications (`ALTER TABLE`) during container startup.
+- **Zero-Downtime / Multi-Instance Safety**: When running multiple replica tasks behind an AWS Application Load Balancer, simultaneous startup in `update` mode causes race conditions, table locks, and potential deadlock failures. `validate` guarantees read-only schema verification.
+- **Pre-Deployment Migration Requirement**:
+  > [!IMPORTANT]
+  > Before deploying new application versions with updated entity fields or new tables to production, database schema changes must be applied using structured migration scripts (e.g. Flyway) prior to launching the updated application containers. If the database schema does not match the JPA entity mappings, the application will fail fast on startup with a schema validation error.
+
+---
+
+## Application Health & Monitoring (Spring Boot Actuator)
+
+The Placement Management System integrates **Spring Boot Actuator** to provide production-ready health monitoring and availability probes for container orchestration platforms (e.g., Kubernetes, Docker) and load balancers.
+
+### Available Endpoints
+
+| HTTP Method | Endpoint | Access | Purpose |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/actuator/health` | **Public** (No JWT required) | Overall system health status (returns `{"status":"UP"}`) |
+| `GET` | `/actuator/health/liveness` | **Public** (No JWT required) | Liveness probe indicating if the application runtime is healthy and running |
+| `GET` | `/actuator/health/readiness` | **Public** (No JWT required) | Readiness probe indicating if the application is ready to accept HTTP traffic |
+
+### Liveness and Readiness Probes
+
+- **Liveness (`/actuator/health/liveness`)**: Indicates whether the internal application state is operational. If a severe failure occurs (e.g., deadlock or unrecoverable fatal condition), an orchestrator can restart the container.
+- **Readiness (`/actuator/health/readiness`)**: Indicates whether the application is fully initialized and prepared to route user requests. Traffic is routed only when readiness reports `UP`.
+
+### Conservative Security & Information Protection
+
+1. **Hidden Health Details (`management.endpoint.health.show-details=never`)**: Component-level diagnostic trees, database URLs, disk space numbers, exception stack traces, and internal service states are never exposed in health responses.
+2. **Strict Endpoint Exposure (`management.endpoints.web.exposure.include=health`)**: Sensitive Actuator management endpoints—such as `/actuator/env`, `/actuator/beans`, `/actuator/configprops`, `/actuator/metrics`, `/actuator/mappings`, `/actuator/loggers`, and heap/thread dump endpoints—are disabled over HTTP and return `404 Not Found`.
+3. **Narrow Security Matchers**: Spring Security permits anonymous access strictly to `/actuator/health`, `/actuator/health/liveness`, and `/actuator/health/readiness`. All business APIs continue to require valid JWT authentication and role authorization.
+
+---
+
+## Business Audit Trail
+
+The Placement Management System implements a dedicated, database-backed **Business Audit Trail** (`audit_logs`) to record critical business lifecycle operations across students, recruitment drives, applications, evaluations, and offers.
+
+### Architecture & Design
+
+- **Layered Integration**: The audit module consists of `AuditLog` (JPA Entity), `AuditLogRepository` (Spring Data JPA), and `AuditService` (Service Layer).
+- **Decoupled Identity Preservation**: The `audit_logs` table deliberately omits direct JPA foreign-key relations to business entities (e.g., `User`, `Job`, `Student`). Instead, it stores scalar entity IDs (`actor_id`, `entity_id`). This ensures that audit records remain permanently immutable and are never deleted or corrupted if associated business entities are deactivated or deleted.
+- **Automated Actor Resolution**: Authenticated user IDs are automatically derived from the active `SecurityContext` via `SecurityHelper`. For unauthenticated or system events, `actor_id` safely defaults to `null`.
+
+### Tracked Business Events
+
+| Action | Affected Entity | Triggering Operation | Description Summary |
+| :--- | :--- | :--- | :--- |
+| `STUDENT_REGISTERED` | `STUDENT` | `AuthService.registerStudent` | Student self-registration completed |
+| `JOB_CREATED` | `JOB` | `JobService.createJob` | Campus recruitment job created |
+| `JOB_UPDATED` | `JOB` | `JobService.updateJob` | Job posting details updated |
+| `JOB_CLOSED` | `JOB` | `JobService.closeJob` | Job posting closed for applications |
+| `APPLICATION_SUBMITTED` | `APPLICATION` | `ApplicationService.createApplication` | Job application submitted |
+| `APPLICATION_STATUS_UPDATED` | `APPLICATION` | `ApplicationService.updateApplicationStatus` | Application status transition recorded |
+| `INTERVIEW_SCHEDULED` | `INTERVIEW` | `InterviewService.scheduleInterview` | Interview round scheduled |
+| `INTERVIEW_UPDATED` | `INTERVIEW` | `InterviewService.updateInterview` | Interview evaluation result updated |
+| `PLACEMENT_CREATED` | `PLACEMENT` | `PlacementService.createPlacement` | Formal placement offer issued |
+
+### Stored Schema & Indexing
+
+| Column | Type | Nullable | Details / Indexing |
+| :--- | :--- | :--- | :--- |
+| `audit_id` | `BIGINT` | No | Primary Key (`IDENTITY`) |
+| `actor_id` | `BIGINT` | Yes | Indexed (`idx_audit_logs_actor_id`) for fast user activity lookups |
+| `action` | `VARCHAR(50)` | No | Enum name representing the business action |
+| `entity_type` | `VARCHAR(50)` | No | Composite index (`idx_audit_logs_entity`) on `(entity_type, entity_id)` |
+| `entity_id` | `BIGINT` | No | Composite index (`idx_audit_logs_entity`) on `(entity_type, entity_id)` |
+| `description` | `VARCHAR(255)` | No | Brief, non-sensitive textual outcome summary |
+| `created_at` | `DATETIME(6)` | No | Indexed (`idx_audit_logs_created_at`) for time-range filtering and sorting |
+
+### Transactional Guarantees
+
+- **Atomic Co-Persistence**: `AuditService.recordAudit` executes within the active database transaction of the enclosing service method (`Propagation.REQUIRED`).
+- **Rollback Guarantee**: If any validation rule, database constraint, or downstream operation fails, the business transaction aborts and the audit entry is automatically rolled back with the business data. No phantom audit logs can ever exist for failed operations.
+- **Fail-Safe Integrity**: Read-only queries (`GET` requests) are never audited, preventing audit table bloat.
+
+### Privacy & Security Hygiene
+
+- **Zero Secrets**: Passwords, hashes, JWT tokens, Bearer strings, and secret credentials are never stored in audit records.
+- **Zero PII Exposure**: Student names, emails, roll numbers, phone numbers, and physical addresses are strictly excluded from audit descriptions.
+- **No Payload Blobs**: Entire request or response JSON bodies are excluded to eliminate storage bloat and prevent accidental data leakage.
+- **Internal-Only Access**: No public REST endpoint exposes the audit log repository or service; audit querying remains internal to the application.
+
+---
+
+## API Rate Limiting
+
+The Placement Management System protects sensitive authentication endpoints against brute-force credential stuffing, dictionary attacks, and denial-of-service (DoS) attempts using an in-memory **Token Bucket Algorithm**.
+
+### Protected Endpoints & Configurable Policies
+
+Rate limiting runs in a dedicated servlet filter (`RateLimitingFilter`) placed **before** authentication processing in the Spring Security filter chain:
+
+| HTTP Method | Target Endpoint | Default Capacity | Refill Rate | Scope |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/login` | **5 requests** | 5 tokens / 60 seconds (1 token every 12s) | Per Client IP |
+| `POST` | `/api/auth/register` | **5 requests** | 5 tokens / 60 seconds (1 token every 12s) | Per Client IP |
+
+All limits and durations can be tuned via `application.properties` or environment variables without changing source code:
+`properties
+application.rate-limiting.enabled=true
+application.rate-limiting.login.limit=5
+application.rate-limiting.login.duration-in-seconds=60
+application.rate-limiting.register.limit=5
+application.rate-limiting.register.duration-in-seconds=60
+application.rate-limiting.trusted-proxy=false
+application.rate-limiting.max-buckets=10000
+`
+
+### HTTP 429 Too Many Requests Behavior
+
+When a client IP exhausts its token budget for an endpoint:
+1. **HTTP Status**: Returns `429 Too Many Requests`.
+2. **Standard Header**: Sends `Retry-After: <seconds>` indicating the exact wait time before the next token refills.
+3. **Consistent Error Payload**: Emits the standard `ErrorResponse` JSON structure:
+`json
+{
+  "timestamp": "2026-11-04T22:45:00",
+  "status": 429,
+  "error": "Too Many Requests",
+  "message": "Too many requests. Please try again after 12 seconds.",
+  "path": "/api/auth/login"
+}
+`
+4. **Isolated Scope**: Public read-only endpoints (e.g., `GET /api/jobs`, `GET /actuator/health`) and authenticated business endpoints are never throttled by auth rate limiting.
+
+### Client IP Resolution & Security
+
+- **Anti-Spoofing by Default**: When `application.rate-limiting.trusted-proxy=false` (default), the service reads `request.getRemoteAddr()`, completely ignoring caller-manipulated `X-Forwarded-For` headers.
+- **Reverse Proxy Compatibility**: When deployed behind an AWS Application Load Balancer (ALB) or Nginx reverse proxy, setting `application.rate-limiting.trusted-proxy=true` safely extracts the original client IP from the first segment of `X-Forwarded-For` with format validation.
+
+### In-Memory Limitations & Path to Horizontal Scaling (AWS)
+
+- **Single-Instance Deployment**: Buckets are currently managed in-memory using a thread-safe `ConcurrentHashMap` with bounded memory management (`max-buckets=10000`) and idle bucket eviction.
+- **Horizontal Scaling Evolution**: In a multi-instance deployment (e.g., multiple ECS/EC2 instances behind an AWS ALB without sticky sessions), an in-memory bucket store would partition token counts across instances. For multi-node AWS deployment, this in-memory `RateLimitingService` should be swapped with a distributed cache provider such as **Redis** / **Amazon ElastiCache** using atomic Redis `INCR` or a distributed Bucket4j Redis backend.
 
 ---
 

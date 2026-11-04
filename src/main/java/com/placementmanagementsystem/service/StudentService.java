@@ -12,6 +12,8 @@ import com.placementmanagementsystem.exception.SkillNotFoundException;
 import com.placementmanagementsystem.exception.StudentNotFoundException;
 import com.placementmanagementsystem.repository.SkillRepository;
 import com.placementmanagementsystem.repository.StudentRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class StudentService {
+
+    private static final Logger log = LoggerFactory.getLogger(StudentService.class);
 
     private final StudentRepository studentRepository;
     private final SkillRepository skillRepository;
@@ -52,6 +56,7 @@ public class StudentService {
         }
 
         Student savedStudent = studentRepository.save(student);
+        log.info("Student profile created with id: {}", savedStudent.getStudentId());
         return toResponse(savedStudent);
     }
 
@@ -102,6 +107,7 @@ public class StudentService {
         }
 
         Student updatedStudent = studentRepository.save(existingStudent);
+        log.info("Student profile updated with id: {}", updatedStudent.getStudentId());
         return toResponse(updatedStudent);
     }
 
@@ -110,6 +116,7 @@ public class StudentService {
                 .orElseThrow(() -> new StudentNotFoundException("Student not found with id: " + id));
         existingStudent.setStatus(StudentStatus.INACTIVE);
         studentRepository.save(existingStudent);
+        log.info("Student profile deactivated with id: {}", id);
     }
 
     @Transactional(readOnly = true)
@@ -139,6 +146,7 @@ public class StudentService {
 
         student.getSkills().add(skill);
         Student savedStudent = studentRepository.save(student);
+        log.info("Assigned skill id: {} to student id: {}", skillId, studentId);
 
         return savedStudent.getSkills().stream()
                 .map(this::toSkillResponse)
@@ -155,6 +163,7 @@ public class StudentService {
 
         student.getSkills().remove(skill);
         studentRepository.save(student);
+        log.info("Removed skill id: {} from student id: {}", skillId, studentId);
     }
 
     private StudentResponse toResponse(Student student) {

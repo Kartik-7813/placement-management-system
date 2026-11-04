@@ -57,6 +57,9 @@ class ApplicationServiceSecurityTest {
     @Mock
     private SecurityHelper securityHelper;
 
+    @Mock
+    private AuditService auditService;
+
     @InjectMocks
     private ApplicationService applicationService;
 

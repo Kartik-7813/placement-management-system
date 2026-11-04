@@ -25,6 +25,7 @@ import com.placementmanagementsystem.repository.JobRepository;
 import com.placementmanagementsystem.repository.StudentRepository;
 import com.placementmanagementsystem.repository.UserRepository;
 import com.placementmanagementsystem.service.ApplicationService;
+import com.placementmanagementsystem.service.AuditService;
 import com.placementmanagementsystem.service.CompanyService;
 import com.placementmanagementsystem.service.InterviewService;
 import com.placementmanagementsystem.service.JobService;
@@ -75,6 +76,9 @@ class CompanyOwnershipTest {
     @Mock
     private SecurityHelper securityHelper;
 
+    @Mock
+    private AuditService auditService;
+
     private JobService jobService;
     private CompanyService companyService;
     private ApplicationService applicationService;
@@ -89,10 +93,10 @@ class CompanyOwnershipTest {
 
     @BeforeEach
     void setUp() {
-        jobService = new JobService(jobRepository, companyRepository, securityHelper);
+        jobService = new JobService(jobRepository, companyRepository, securityHelper, auditService);
         companyService = new CompanyService(companyRepository, jobRepository, securityHelper);
-        applicationService = new ApplicationService(applicationRepository, studentRepository, jobRepository, securityHelper);
-        interviewService = new InterviewService(interviewRepository, applicationRepository, securityHelper);
+        applicationService = new ApplicationService(applicationRepository, studentRepository, jobRepository, securityHelper, auditService);
+        interviewService = new InterviewService(interviewRepository, applicationRepository, securityHelper, auditService);
 
         companyA = new Company(1L, "Company A", "https://companya.com", "Alice HR", "hr@companya.com", "1234567890", "Tech Park", CompanyStatus.ACTIVE);
         companyB = new Company(2L, "Company B", "https://companyb.com", "Bob HR", "hr@companyb.com", "0987654321", "City Center", CompanyStatus.ACTIVE);

@@ -3,6 +3,8 @@ package com.placementmanagementsystem.security;
 import com.placementmanagementsystem.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
@@ -20,6 +22,8 @@ import java.time.LocalDateTime;
 @Component
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationEntryPoint.class);
+
     private final ObjectMapper objectMapper;
 
     public JwtAuthenticationEntryPoint(ObjectMapper objectMapper) {
@@ -32,6 +36,8 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
             HttpServletResponse response,
             AuthenticationException authException
     ) throws IOException {
+
+        log.warn("Unauthorized access attempt to path [{}]", request.getRequestURI());
 
         HttpStatus status = HttpStatus.UNAUTHORIZED;
         ErrorResponse errorResponse = new ErrorResponse(

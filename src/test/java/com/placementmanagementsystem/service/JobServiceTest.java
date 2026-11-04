@@ -42,6 +42,9 @@ class JobServiceTest {
     @Mock
     private SecurityHelper securityHelper;
 
+    @Mock
+    private AuditService auditService;
+
     @InjectMocks
     private JobService jobService;
 

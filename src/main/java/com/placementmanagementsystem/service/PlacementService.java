@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import com.placementmanagementsystem.entity.Application;
 import com.placementmanagementsystem.entity.Placement;
 import com.placementmanagementsystem.entity.Student;
 import com.placementmanagementsystem.enums.ApplicationStatus;
+import com.placementmanagementsystem.enums.AuditAction;
 import com.placementmanagementsystem.enums.PlacementStatus;
 import com.placementmanagementsystem.exception.ApplicationNotFoundException;
 import com.placementmanagementsystem.exception.ApplicationNotSelectedException;
@@ -30,6 +33,8 @@ import com.placementmanagementsystem.repository.StudentRepository;
 @Transactional
 public class PlacementService {
 
+    private static final Logger log = LoggerFactory.getLogger(PlacementService.class);
+
     public static final Set<PlacementStatus> ACTIVE_STATUSES = Set.of(
             PlacementStatus.CONFIRMED,
             PlacementStatus.JOINED
@@ -39,17 +44,20 @@ public class PlacementService {
     private final StudentRepository studentRepository;
     private final ApplicationRepository applicationRepository;
     private final com.placementmanagementsystem.security.SecurityHelper securityHelper;
+    private final AuditService auditService;
 
     public PlacementService(
             PlacementRepository placementRepository,
             StudentRepository studentRepository,
             ApplicationRepository applicationRepository,
-            com.placementmanagementsystem.security.SecurityHelper securityHelper) {
+            com.placementmanagementsystem.security.SecurityHelper securityHelper,
+            AuditService auditService) {
 
         this.placementRepository = placementRepository;
         this.studentRepository = studentRepository;
         this.applicationRepository = applicationRepository;
         this.securityHelper = securityHelper;
+        this.auditService = auditService;
     }
 
     // =========================================================
@@ -110,6 +118,14 @@ public class PlacementService {
         placement.setPlacedOn(LocalDateTime.now());
 
         Placement savedPlacement = placementRepository.save(placement);
+        auditService.recordAudit(
+                AuditAction.PLACEMENT_CREATED,
+                "PLACEMENT",
+                savedPlacement.getPlacementId(),
+                "Placement offer recorded with status " + savedPlacement.getStatus()
+        );
+        log.info("Placement recorded with id: {} for student id: {} and application id: {}",
+                savedPlacement.getPlacementId(), request.getStudentId(), request.getApplicationId());
 
         return toResponse(savedPlacement);
     }
@@ -214,6 +230,7 @@ public class PlacementService {
 
         Placement updatedPlacement =
                 placementRepository.save(existingPlacement);
+        log.info("Placement updated with id: {}", updatedPlacement.getPlacementId());
 
         return toResponse(updatedPlacement);
     }
@@ -235,10 +252,12 @@ public class PlacementService {
                 newStatus
         );
 
+        PlacementStatus previousStatus = placement.getStatus();
         placement.setStatus(newStatus);
 
         Placement updatedPlacement =
                 placementRepository.save(placement);
+        log.info("Placement id: {} status transitioned from {} to {}", id, previousStatus, newStatus);
 
         return toResponse(updatedPlacement);
     }
