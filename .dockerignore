@@ -1,0 +1,47 @@
+# ===================================================================
+# Docker Build Ignore File
+# Excludes local artifacts, secrets, and IDE files from Docker image
+# ===================================================================
+
+# Version control
+.git/
+.gitignore
+
+# Maven build outputs
+target/
+*.class
+
+# Environment & Secret files
+.env
+.env.*
+!.env.example
+
+# Application logs
+logs/
+*.log
+
+# Database dumps and archives
+*.sql
+*.dump
+*.tar
+*.gz
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Documentation & Temporary files
+*.tmp
+*.swp
+*.bak
+HELP.md

@@ -1,0 +1,58 @@
+name: Placement Management System CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build & Verify (Java 21, MySQL 8.0)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: placement_management_system
+          MYSQL_ROOT_PASSWORD: rootpassword
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -prootpassword"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Eclipse Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Generate secure JWT secret for CI
+        run: |
+          JWT_SECRET=$(openssl rand -base64 32)
+          echo "::add-mask::$JWT_SECRET"
+          echo "JWT_SECRET=$JWT_SECRET" >> $GITHUB_ENV
+          echo "APPLICATION_SECURITY_JWT_SECRET=$JWT_SECRET" >> $GITHUB_ENV
+
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
+
+      - name: Build and verify with Maven
+        run: ./mvnw -B verify
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/placement_management_system?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: rootpassword
+          SPRING_JPA_HIBERNATE_DDL_AUTO: update
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          APPLICATION_SECURITY_JWT_SECRET: ${{ env.APPLICATION_SECURITY_JWT_SECRET }}

@@ -21,6 +21,8 @@ A robust, enterprise-grade RESTful backend application built with **Java 21**, *
 - [Automated Testing & Verification](#automated-testing--verification)
 - [Local Setup & Configuration Guide](#local-setup--configuration-guide)
 - [Production Profile & Cloud Deployment Hardening](#production-profile--cloud-deployment-hardening)
+- [Containerization & Docker Setup](#containerization--docker-setup)
+- [Continuous Integration (GitHub Actions)](#continuous-integration-github-actions)
 - [Application Health & Monitoring (Spring Boot Actuator)](#application-health--monitoring-spring-boot-actuator)
 - [Business Audit Trail](#business-audit-trail)
 - [API Rate Limiting](#api-rate-limiting)
@@ -1035,6 +1037,180 @@ In production, `ddl-auto` is strictly locked to **`validate`**:
 
 ---
 
+## Containerization & Docker Setup
+
+The Placement Management System provides a multi-stage `Dockerfile` and a `docker-compose.yml` specification to orchestrate the Spring Boot backend alongside a dedicated MySQL 8.0 container.
+
+### Prerequisites
+
+1. **Docker Engine**: Version 20.10+ or **Docker Desktop**:
+   ```powershell
+   docker --version
+   ```
+2. **Docker Compose**: Version 2.0+ (or `docker-compose` CLI):
+   ```powershell
+   docker compose version
+   # or
+   docker-compose --version
+   ```
+
+---
+
+### Step 1: Create the Environment File (`.env`)
+
+Copy the template `.env.example` to `.env`:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+> [!CAUTION]
+> **Secret Hygiene**: The `.env` file contains sensitive local credentials and is automatically ignored by Git. Never commit `.env` to version control.
+
+---
+
+### Step 2: Generate a Secure Random JWT Secret
+
+Generate a cryptographically secure 256-bit (32-byte) Base64-encoded secret key using PowerShell:
+
+```powershell
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
+```
+
+Open `.env` and configure:
+1. `JWT_SECRET`: Paste the generated Base64 key.
+2. `MYSQL_PASSWORD`: Choose a strong password for `pms_user`.
+3. `MYSQL_ROOT_PASSWORD`: Choose a strong root password for MySQL administration.
+
+---
+
+### Step 3: Build & Start the Containers
+
+Launch the MySQL container and Spring Boot application in detached mode:
+
+```powershell
+docker compose up -d --build
+# or using docker-compose
+docker-compose up -d --build
+```
+
+**Startup Sequence & Health Dependency:**
+1. The `mysql` container starts first and runs an internal healthcheck (`mysqladmin ping`).
+2. The `app` container waits until `mysql` reports `healthy` before initiating startup.
+3. The `app` runs with the `prod` profile, connecting to MySQL via hostname `mysql:3306`.
+4. Spring Boot Actuator exposes `/actuator/health` which Docker Compose polls for container health.
+
+---
+
+### Step 4: Verify Container Status & Logs
+
+**Check running container health status**:
+```powershell
+docker compose ps
+# or
+docker-compose ps
+```
+
+**Stream live application logs**:
+```powershell
+docker compose logs -f app
+# or
+docker-compose logs -f app
+```
+
+**Stream MySQL logs**:
+```powershell
+docker compose logs -f mysql
+# or
+docker-compose logs -f mysql
+```
+
+---
+
+### Step 5: Test Endpoints
+
+Once `docker compose ps` reports both containers as `(healthy)`:
+
+- **System Health Status**:
+  ```powershell
+  Invoke-RestMethod -Uri http://localhost:8080/actuator/health
+  # Expected: {"status":"UP"}
+  ```
+- **Liveness Probe**:
+  ```powershell
+  Invoke-RestMethod -Uri http://localhost:8080/actuator/health/liveness
+  # Expected: {"status":"UP"}
+  ```
+- **Readiness Probe**:
+  ```powershell
+  Invoke-RestMethod -Uri http://localhost:8080/actuator/health/readiness
+  # Expected: {"status":"UP"}
+  ```
+- **Public Jobs API**:
+  ```powershell
+  Invoke-RestMethod -Uri http://localhost:8080/api/jobs
+  ```
+
+---
+
+### Step 6: Stopping & Cleaning Up Containers
+
+**Stop containers (preserves database data in volume)**:
+```powershell
+docker compose down
+# or
+docker-compose down
+```
+
+**Stop containers and remove volumes (DELETES local database data)**:
+```powershell
+docker compose down -v
+# or
+docker-compose down -v
+```
+
+> [!WARNING]
+> **Data Loss Warning**: Running `docker compose down -v` permanently deletes the `pms-mysql-data` named volume and all database tables, records, and student/placement data stored inside it. Use `docker compose down` (without `-v`) to retain database state between sessions.
+
+---
+
+## Continuous Integration (GitHub Actions)
+
+The repository includes an automated Continuous Integration (CI) pipeline configured via GitHub Actions (`.github/workflows/ci.yml`) to guarantee code quality, verify compilability, and validate all automated tests against a real database service before merging.
+
+### Workflow Triggers
+
+- **Push**: Runs automatically on any push to the `main` branch.
+- **Pull Request**: Runs on pull requests targeting `main`.
+- **Manual Trigger**: Can be dispatched manually via the `workflow_dispatch` trigger in the GitHub Actions tab.
+
+### CI Environment & Execution Pipeline
+
+| Component | Configuration / Specification | Purpose |
+| :--- | :--- | :--- |
+| **Runner OS** | `ubuntu-latest` | Standard cloud build runner |
+| **Java Runtime** | Java 21 (`Eclipse Temurin` distribution) | Matches production runtime requirement |
+| **Dependency Cache** | Maven package cache enabled via `actions/setup-java@v4` | Accelerates build cycles across workflow runs |
+| **Database Service** | `mysql:8.0` container on port `3306` with `mysqladmin` healthcheck | Provides disposable, isolated MySQL instance for integration tests |
+| **JWT Key Generation** | Masked 256-bit (32-byte) standard Base64 secret via `openssl rand -base64 32` | Satisfies strict HMAC-SHA256 signature requirements without committing secrets |
+| **Verification Command** | `./mvnw -B verify` | Executes the entire build, unit tests, security tests, and MySQL integration tests |
+
+### Database & Security Configuration in CI
+
+In the CI workflow environment:
+- **Service Container**: A clean MySQL 8.0 container is initialized with a dedicated database (`placement_management_system`). The runner waits for the `mysqladmin ping` health probe to report healthy before starting the build.
+- **Dynamic JWT Secret**: A cryptographically random 32-byte Base64 key is generated dynamically during the workflow run and masked (`::add-mask::`) to prevent exposure in CI job logs.
+- **Schema Auto-Creation**: `SPRING_JPA_HIBERNATE_DDL_AUTO=update` is set in the CI environment so that Hibernate automatically generates required tables and constraints on the fresh database container prior to executing integration tests.
+- **Complete Test Execution**: All unit tests, slice tests, security tests, transaction rollback tests (`TransactionalRollbackIntegrationTest`), and concurrency tests (`ConcurrencyIntegrationTest`) run to completion without skips or exclusions.
+
+### Viewing CI Runs in GitHub
+
+1. Navigate to the repository on GitHub.
+2. Click the **Actions** tab at the top.
+3. Select the **Placement Management System CI** workflow from the left sidebar to view real-time logs, build statuses, and test results.
+
+---
+
 ## Application Health & Monitoring (Spring Boot Actuator)
 
 The Placement Management System integrates **Spring Boot Actuator** to provide production-ready health monitoring and availability probes for container orchestration platforms (e.g., Kubernetes, Docker) and load balancers.
@@ -1192,7 +1368,8 @@ The following improvements are planned for upcoming iterations:
 - [x] **Unit & MockMvc Test Suite**: 250 automated tests including comprehensive Mockito service tests, MockMvc controller slice tests, and pagination tests. *(Completed in Phase 6)*
 - [ ] **Cloud Storage Integration**: Implement multi-part file upload support backed by AWS S3 or MinIO for candidate resumes and job offer letters.
 - [ ] **Automated Email Notifications**: Integrate Spring Mail with Thymeleaf templates to dispatch interview invitations and status changes.
-- [ ] **Containerization & CI/CD**: Add a multi-stage `Dockerfile`, `docker-compose.yml` (wiring MySQL and the Spring Boot service), and GitHub Actions build pipelines.
+- [x] **Containerization & Docker Setup**: Multi-stage `Dockerfile` and `docker-compose.yml` orchestrating the Spring Boot application and MySQL with health checks. *(Completed in Phase 8)*
+- [ ] **CI/CD Build Pipelines**: GitHub Actions workflow for automated test execution, code quality checks, and container image publishing.
 
 ---
 
