@@ -44,7 +44,7 @@ EXPOSE 8080
 
 # Configure production profile and container-aware JVM memory limits
 ENV SPRING_PROFILES_ACTIVE=prod \
-    JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+    JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=65.0 -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=64m -Djava.security.egd=file:/dev/./urandom"
 
 # Execute application using exec to ensure OS signals (SIGTERM) are handled by PID 1
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Dserver.port=${PORT:-8080} -jar app.jar"]

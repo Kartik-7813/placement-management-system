@@ -14,6 +14,7 @@ import com.placementmanagementsystem.dto.ApplicationRequest;
 import com.placementmanagementsystem.dto.ApplicationResponse;
 import com.placementmanagementsystem.dto.ApplicationUpdateRequest;
 import com.placementmanagementsystem.entity.Application;
+import com.placementmanagementsystem.entity.Company;
 import com.placementmanagementsystem.entity.Job;
 import com.placementmanagementsystem.entity.Student;
 import com.placementmanagementsystem.enums.ApplicationStatus;
@@ -154,6 +155,8 @@ public class ApplicationService {
     @Transactional(readOnly = true)
     public Page<ApplicationResponse> getAllApplications(Long studentId, Long jobId,
                                                         ApplicationStatus status, Pageable pageable) {
+        Long companyId = null;
+
         // Enforce student privacy: students can only see their own applications.
         if (securityHelper.hasAuthority("ROLE_STUDENT")) {
             Student currentStudent = securityHelper.getCurrentStudent();
@@ -162,10 +165,20 @@ public class ApplicationService {
                         "You do not have permission to view another student's applications");
             }
             studentId = currentStudent.getStudentId();
+        } else if (securityHelper.hasAuthority("ROLE_COMPANY")) {
+            // Enforce company privacy: company recruiters can only view applications for their own jobs.
+            Company currentCompany = securityHelper.getCurrentCompany();
+            companyId = currentCompany.getCompanyId();
+
+            if (jobId != null) {
+                Job job = jobRepository.findById(jobId)
+                        .orElseThrow(() -> new JobNotFoundException("Job not found with id: " + jobId));
+                securityHelper.enforceCompanyOwnership(job.getCompany().getCompanyId());
+            }
         }
 
         Page<Application> applications = applicationRepository.searchApplications(
-                studentId, jobId, status, pageable);
+                studentId, jobId, companyId, status, pageable);
         return applications.map(this::toResponse);
     }
 
@@ -176,6 +189,11 @@ public class ApplicationService {
         Application application = applicationRepository.findById(id)
                 .orElseThrow(() -> new ApplicationNotFoundException(
                         "Application not found with id: " + id));
+
+        // Enforce company ownership: company recruiters can only view applications for their own jobs.
+        if (securityHelper.hasAuthority("ROLE_COMPANY")) {
+            securityHelper.enforceCompanyOwnership(application.getJob().getCompany().getCompanyId());
+        }
 
         // Allow ADMIN and COMPANY to read candidate applications; restrict STUDENT to their own application.
         securityHelper.enforceStudentReadAccess(application.getStudent().getStudentId());

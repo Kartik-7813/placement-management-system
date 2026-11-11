@@ -1,0 +1,56 @@
+{
+    "groups": [],
+    "properties": [
+        {
+            "name": "application.security.jwt.secret",
+            "type": "java.lang.String",
+            "description": "Base64-encoded JWT signing secret."
+        },
+        {
+            "name": "application.security.jwt.expiration-ms",
+            "type": "java.lang.Long",
+            "description": "JWT token expiration time in milliseconds."
+        },
+        {
+            "name": "application.rate-limiting.enabled",
+            "type": "java.lang.Boolean",
+            "description": "Enables or disables application rate limiting."
+        },
+        {
+            "name": "application.rate-limiting.login.limit",
+            "type": "java.lang.Integer",
+            "description": "Maximum login attempts per client within the configured duration."
+        },
+        {
+            "name": "application.rate-limiting.login.duration-in-seconds",
+            "type": "java.lang.Integer",
+            "description": "Login rate limit duration in seconds."
+        },
+        {
+            "name": "application.rate-limiting.register.limit",
+            "type": "java.lang.Integer",
+            "description": "Maximum registration attempts per client within the configured duration."
+        },
+        {
+            "name": "application.rate-limiting.register.duration-in-seconds",
+            "type": "java.lang.Integer",
+            "description": "Registration rate limit duration in seconds."
+        },
+        {
+            "name": "application.rate-limiting.trusted-proxy",
+            "type": "java.lang.Boolean",
+            "description": "Enables trusted proxy handling for client IP detection."
+        },
+        {
+            "name": "application.rate-limiting.max-buckets",
+            "type": "java.lang.Integer",
+            "description": "Maximum number of client rate limiting buckets."
+        },
+        {
+            "name": "application.cors.allowed-origins",
+            "type": "java.lang.String",
+            "description": "Comma-separated list of allowed CORS origins."
+        }
+    ],
+    "hints": []
+}

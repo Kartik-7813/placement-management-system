@@ -12,6 +12,7 @@ import com.placementmanagementsystem.enums.CompanyStatus;
 import com.placementmanagementsystem.enums.JobStatus;
 import com.placementmanagementsystem.enums.StudentStatus;
 import com.placementmanagementsystem.exception.InactiveCompanyException;
+import com.placementmanagementsystem.exception.JobNotFoundException;
 import com.placementmanagementsystem.repository.ApplicationRepository;
 import com.placementmanagementsystem.repository.JobRepository;
 import com.placementmanagementsystem.repository.StudentRepository;
@@ -99,14 +100,14 @@ class ApplicationServiceSecurityTest {
     void getAllApplications_WhenRoleStudent_ForcesOwnStudentId() {
         when(securityHelper.hasAuthority("ROLE_STUDENT")).thenReturn(true);
         when(securityHelper.getCurrentStudent()).thenReturn(mockStudent);
-        when(applicationRepository.searchApplications(eq(1L), any(), any(), any(Pageable.class)))
+        when(applicationRepository.searchApplications(eq(1L), any(), eq(null), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(Collections.singletonList(mockApplication)));
 
         var result = applicationService.getAllApplications(null, null, null, Pageable.unpaged());
 
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
-        verify(applicationRepository).searchApplications(eq(1L), any(), any(), any(Pageable.class));
+        verify(applicationRepository).searchApplications(eq(1L), any(), eq(null), any(), any(Pageable.class));
     }
 
     @Test
@@ -122,10 +123,11 @@ class ApplicationServiceSecurityTest {
     }
 
     @Test
-    @DisplayName("getAllApplications allows admin to query applications without filtering by student")
+    @DisplayName("getAllApplications allows admin to query applications without filtering by student or company")
     void getAllApplications_WhenRoleAdmin_AllowsQuery() {
         when(securityHelper.hasAuthority("ROLE_STUDENT")).thenReturn(false);
-        when(applicationRepository.searchApplications(eq(null), any(), any(), any(Pageable.class)))
+        when(securityHelper.hasAuthority("ROLE_COMPANY")).thenReturn(false);
+        when(applicationRepository.searchApplications(eq(null), any(), eq(null), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(Collections.singletonList(mockApplication)));
 
         var result = applicationService.getAllApplications(null, null, null, Pageable.unpaged());
@@ -135,15 +137,133 @@ class ApplicationServiceSecurityTest {
     }
 
     @Test
-    @DisplayName("getApplicationById delegates to enforceStudentReadAccess")
-    void getApplicationById_EnforcesReadAccess() {
+    @DisplayName("getAllApplications restricts to authenticated company when caller has ROLE_COMPANY and no jobId is provided")
+    void getAllApplications_WhenRoleCompany_NoJobId_RestrictsToCompanyId() {
+        Company companyA = new Company();
+        companyA.setCompanyId(10L);
+
+        when(securityHelper.hasAuthority("ROLE_STUDENT")).thenReturn(false);
+        when(securityHelper.hasAuthority("ROLE_COMPANY")).thenReturn(true);
+        when(securityHelper.getCurrentCompany()).thenReturn(companyA);
+        when(applicationRepository.searchApplications(eq(null), eq(null), eq(10L), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.singletonList(mockApplication)));
+
+        var result = applicationService.getAllApplications(null, null, null, Pageable.unpaged());
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        verify(applicationRepository).searchApplications(eq(null), eq(null), eq(10L), eq(null), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("getAllApplications allows company to filter by its own jobId")
+    void getAllApplications_WhenRoleCompany_OwnJobId_AllowsQuery() {
+        Company companyA = new Company();
+        companyA.setCompanyId(10L);
+
+        when(securityHelper.hasAuthority("ROLE_STUDENT")).thenReturn(false);
+        when(securityHelper.hasAuthority("ROLE_COMPANY")).thenReturn(true);
+        when(securityHelper.getCurrentCompany()).thenReturn(companyA);
+        when(jobRepository.findById(100L)).thenReturn(Optional.of(mockJob));
+        when(applicationRepository.searchApplications(eq(null), eq(100L), eq(10L), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.singletonList(mockApplication)));
+
+        var result = applicationService.getAllApplications(null, 100L, null, Pageable.unpaged());
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        verify(securityHelper).enforceCompanyOwnership(10L);
+        verify(applicationRepository).searchApplications(eq(null), eq(100L), eq(10L), eq(null), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("getAllApplications throws AccessDeniedException when company queries another company's jobId")
+    void getAllApplications_WhenRoleCompany_OtherCompanyJobId_ThrowsAccessDenied() {
+        Company companyA = new Company();
+        companyA.setCompanyId(10L);
+
+        Company companyB = new Company();
+        companyB.setCompanyId(20L);
+
+        Job jobB = new Job();
+        jobB.setJobId(200L);
+        jobB.setCompany(companyB);
+
+        when(securityHelper.hasAuthority("ROLE_STUDENT")).thenReturn(false);
+        when(securityHelper.hasAuthority("ROLE_COMPANY")).thenReturn(true);
+        when(securityHelper.getCurrentCompany()).thenReturn(companyA);
+        when(jobRepository.findById(200L)).thenReturn(Optional.of(jobB));
+        doThrow(new AccessDeniedException("You do not have permission to access or modify another company's resource"))
+                .when(securityHelper).enforceCompanyOwnership(20L);
+
+        assertThrows(AccessDeniedException.class, () ->
+                applicationService.getAllApplications(null, 200L, null, Pageable.unpaged()));
+    }
+
+    @Test
+    @DisplayName("getAllApplications throws JobNotFoundException when company queries non-existent jobId")
+    void getAllApplications_WhenRoleCompany_JobNotFound_ThrowsJobNotFoundException() {
+        Company companyA = new Company();
+        companyA.setCompanyId(10L);
+
+        when(securityHelper.hasAuthority("ROLE_STUDENT")).thenReturn(false);
+        when(securityHelper.hasAuthority("ROLE_COMPANY")).thenReturn(true);
+        when(securityHelper.getCurrentCompany()).thenReturn(companyA);
+        when(jobRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(JobNotFoundException.class, () ->
+                applicationService.getAllApplications(null, 999L, null, Pageable.unpaged()));
+    }
+
+    @Test
+    @DisplayName("getApplicationById delegates to enforceStudentReadAccess when caller is not ROLE_COMPANY")
+    void getApplicationById_WhenNotCompany_EnforcesReadAccess() {
         when(applicationRepository.findById(50L)).thenReturn(Optional.of(mockApplication));
+        when(securityHelper.hasAuthority("ROLE_COMPANY")).thenReturn(false);
 
         var response = applicationService.getApplicationById(50L);
 
         assertNotNull(response);
         assertEquals(50L, response.getApplicationId());
         verify(securityHelper).enforceStudentReadAccess(1L);
+    }
+
+    @Test
+    @DisplayName("getApplicationById allows company to retrieve its own job's application")
+    void getApplicationById_WhenCompanyOwnsApplication_Succeeds() {
+        when(applicationRepository.findById(50L)).thenReturn(Optional.of(mockApplication));
+        when(securityHelper.hasAuthority("ROLE_COMPANY")).thenReturn(true);
+
+        var response = applicationService.getApplicationById(50L);
+
+        assertNotNull(response);
+        assertEquals(50L, response.getApplicationId());
+        verify(securityHelper).enforceCompanyOwnership(10L);
+        verify(securityHelper).enforceStudentReadAccess(1L);
+    }
+
+    @Test
+    @DisplayName("getApplicationById throws AccessDeniedException when company retrieves another company's application")
+    void getApplicationById_WhenCompanyDoesNotOwnApplication_ThrowsAccessDenied() {
+        Company companyB = new Company();
+        companyB.setCompanyId(20L);
+
+        Job jobB = new Job();
+        jobB.setJobId(200L);
+        jobB.setCompany(companyB);
+
+        Application otherApp = new Application();
+        otherApp.setApplicationId(60L);
+        otherApp.setJob(jobB);
+        otherApp.setStudent(mockStudent);
+
+        when(applicationRepository.findById(60L)).thenReturn(Optional.of(otherApp));
+        when(securityHelper.hasAuthority("ROLE_COMPANY")).thenReturn(true);
+        doThrow(new AccessDeniedException("You do not have permission to access or modify another company's resource"))
+                .when(securityHelper).enforceCompanyOwnership(20L);
+
+        assertThrows(AccessDeniedException.class, () ->
+                applicationService.getApplicationById(60L));
     }
 
     @Test

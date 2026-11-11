@@ -163,6 +163,32 @@ class ApplicationSecurityTest {
     }
 
     @Test
+    @DisplayName("Company user viewing application of another company returns 403 Forbidden")
+    void company_ViewOtherCompanyApplicationById_Returns403() throws Exception {
+        when(applicationService.getApplicationById(2L))
+                .thenThrow(new AccessDeniedException("You do not have permission to access or modify another company's resource"));
+
+        mockMvc.perform(get("/api/applications/2")
+                        .header("Authorization", "Bearer " + COMPANY_TOKEN))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status", is(403)))
+                .andExpect(jsonPath("$.error", is("Forbidden")));
+    }
+
+    @Test
+    @DisplayName("Company user querying another company's job applications returns 403 Forbidden")
+    void company_QueryOtherCompanyJobApplications_Returns403() throws Exception {
+        when(applicationService.getAllApplications(any(), eq(999L), any(), any(Pageable.class)))
+                .thenThrow(new AccessDeniedException("You do not have permission to access or modify another company's resource"));
+
+        mockMvc.perform(get("/api/applications?jobId=999")
+                        .header("Authorization", "Bearer " + COMPANY_TOKEN))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status", is(403)))
+                .andExpect(jsonPath("$.error", is("Forbidden")));
+    }
+
+    @Test
     @DisplayName("Student can update their own application resume")
     void student_UpdateOwnApplication_Returns200() throws Exception {
         when(applicationService.updateApplication(eq(1L), any(ApplicationUpdateRequest.class)))

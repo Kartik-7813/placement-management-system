@@ -14,6 +14,8 @@ src/main/resources/application-local.properties
 src/main/resources/application-dev.properties
 src/main/resources/application-*.properties
 !src/main/resources/application.properties
+!src/main/resources/application-prod.properties
+!src/main/resources/application-tidb.properties
 
 
 # ================================
@@ -70,3 +72,5 @@ Thumbs.db
 *.temp
 *.swp
 *.swo
+# Local startup helper
+start-backend.ps1
